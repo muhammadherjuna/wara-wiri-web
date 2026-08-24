@@ -1,29 +1,22 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { useForm, Controller } from "react-hook-form";
+import React, { useState, useEffect, useRef } from "react";
+import { useForm, Controller, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import {
-  motion,
-  AnimatePresence,
-  useSpring,
-  useTransform,
-  useMotionValue,
-} from "framer-motion";
+import { motion, AnimatePresence, useSpring, useTransform } from "framer-motion";
 import {
   ChevronRight,
   ChevronLeft,
   Check,
   MapPin,
-  CalendarDays,
+  Clock,
   Bus,
   Users,
   Phone,
   School,
   User,
   Calculator,
-  Sparkles,
   MessageCircle,
   CheckCircle2,
   AlertCircle,
@@ -31,1145 +24,624 @@ import {
 } from "lucide-react";
 import { Section } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
 import { formatRupiah } from "@/data/packages";
+import {
+  DESTINATIONS,
+  DURATIONS,
+  BUS_TYPES,
+  ADMIN_WA_NUMBER,
+  calculateEstimation,
+  buildWhatsAppMessage,
+  getDestination,
+  getDuration,
+  getBusType,
+} from "@/lib/pricing";
+import type { EstimatorFormValues } from "@/types/estimator";
 
-// ─── Constants & Pricing ─────────────────────────────────────────────────────
+// --- Zod Schema ---
 
-const ADMIN_WA = "6281234567890";
-
-const BASE_PRICES: Record<string, number> = {
-  Bali: 1_500_000,
-  Jogja: 800_000,
-  Bromo: 900_000,
-  Bandung: 700_000,
-  Dieng: 500_000,
-  Jakarta: 1_200_000,
-};
-
-const DURATION_MULT: Record<string, number> = {
-  "2D1N": 1.0,
-  "3D2N": 1.4,
-  "4D3N": 1.8,
-  "5D4N": 2.2,
-};
-
-const BUS_MULT: Record<string, number> = {
-  Standard: 1.0,
-  Executive: 1.3,
-  SHD: 1.6,
-};
-
-const BUS_LABELS: Record<string, string> = {
-  Standard: "Standard Big Bus",
-  Executive: "Executive",
-  SHD: "SHD (Suit Hidrolik Double)",
-};
-
-// ─── Calculation ─────────────────────────────────────────────────────────────
-
-interface EstimateInput {
-  destination: string;
-  duration: string;
-  studentCount: number;
-  busType: string;
-  teacherCount: number;
-}
-
-interface EstimateResult {
-  pricePerStudent: number;
-  totalStudentsPrice: number;
-  freeTeachersQuota: number;
-  actualFreeTeachers: number;
-  payingTeachers: number;
-  totalTeachersPrice: number;
-  grandTotal: number;
-}
-
-function calculateEstimate(data: EstimateInput): EstimateResult {
-  const basePrice = BASE_PRICES[data.destination] ?? 0;
-  const durationMult = DURATION_MULT[data.duration] ?? 1;
-  const busMult = BUS_MULT[data.busType] ?? 1;
-
-  const pricePerStudent = basePrice * durationMult * busMult;
-  const totalStudentsPrice = data.studentCount * pricePerStudent;
-
-  const freeTeachersQuota = Math.floor(data.studentCount / 20);
-  const actualFreeTeachers = Math.min(data.teacherCount, freeTeachersQuota);
-  const payingTeachers = Math.max(0, data.teacherCount - freeTeachersQuota);
-  const totalTeachersPrice = payingTeachers * pricePerStudent;
-
-  const grandTotal = totalStudentsPrice + totalTeachersPrice;
-
-  return {
-    pricePerStudent,
-    totalStudentsPrice,
-    freeTeachersQuota,
-    actualFreeTeachers,
-    payingTeachers,
-    totalTeachersPrice,
-    grandTotal,
-  };
-}
-
-// ─── Zod Schemas ─────────────────────────────────────────────────────────────
-
-const step1Schema = z.object({
+const schema = z.object({
   destination: z.string().min(1, "Pilih destinasi terlebih dahulu"),
-  duration: z.string().min(1, "Pilih durasi perjalanan"),
-});
-
-const step2Schema = z.object({
+  duration:    z.string().min(1, "Pilih durasi perjalanan"),
   studentCount: z
-    .number({ message: "Harus berupa angka" })
-    .min(20, "Minimum 20 siswa")
-    .max(500, "Maksimum 500 siswa"),
-  busType: z.string().min(1, "Pilih tipe bus"),
+    .number()
+    .min(20,  "Minimal 20 siswa")
+    .max(500, "Maksimal 500 siswa"),
   teacherCount: z
-    .number({ message: "Harus berupa angka" })
-    .min(1, "Minimum 1 guru")
-    .max(50, "Maksimum 50 guru"),
-});
-
-const step3Schema = z.object({
-  schoolName: z.string().min(3, "Nama sekolah terlalu pendek"),
-  contactName: z.string().min(2, "Nama kontak terlalu pendek"),
-  whatsapp: z
+    .number()
+    .min(1,  "Minimal 1 guru pendamping")
+    .max(50, "Maksimal 50 guru"),
+  busType:   z.string().min(1, "Pilih tipe armada bus"),
+  schoolName:  z.string().min(3,  "Nama sekolah minimal 3 karakter"),
+  contactName: z.string().min(3,  "Nama perwakilan minimal 3 karakter"),
+  whatsapp:    z
     .string()
-    .regex(
-      /^(08|628)\d{8,11}$/,
-      "Nomor WA tidak valid (contoh: 08123456789 atau 6281234567890)"
-    ),
+    .min(9, "Nomor WhatsApp tidak valid")
+    .regex(/^(\+62|62|0)[0-9]{8,13}$/, "Format: 081234567890 atau 6281234567890"),
 });
 
-const fullSchema = step1Schema.merge(step2Schema).merge(step3Schema);
-type FormData = z.infer<typeof fullSchema>;
+type FormData = z.infer<typeof schema>;
 
-// ─── Animated Counter ─────────────────────────────────────────────────────────
+const STEPS = [
+  { label: "Destinasi", icon: MapPin  },
+  { label: "Peserta",   icon: Users   },
+  { label: "Kontak",    icon: Phone   },
+] as const;
+
+const STEP_FIELDS: (keyof FormData)[][] = [
+  ["destination", "duration"],
+  ["studentCount", "teacherCount", "busType"],
+  ["schoolName", "contactName", "whatsapp"],
+];
+
+// --- AnimatedNumber ---
 
 function AnimatedNumber({ value }: { value: number }) {
-  const motionVal = useMotionValue(value);
-  const spring = useSpring(motionVal, { stiffness: 80, damping: 18 });
+  const spring = useSpring(value, { stiffness: 60, damping: 14 });
   const display = useTransform(spring, (v) => formatRupiah(Math.round(v)));
-  const [text, setText] = React.useState(formatRupiah(value));
-
-  useEffect(() => {
-    motionVal.set(value);
-  }, [value, motionVal]);
-
-  useEffect(() => {
-    const unsub = display.on("change", (v) => setText(v));
-    return unsub;
-  }, [display]);
-
+  const [text, setText] = useState(formatRupiah(value));
+  useEffect(() => { spring.set(value); }, [spring, value]);
+  useEffect(() => { return display.on("change", (v) => setText(v)); }, [display]);
   return <span>{text}</span>;
 }
 
-// ─── Progress Bar ─────────────────────────────────────────────────────────────
+// --- StepProgressBar ---
 
-const STEPS = ["Destinasi", "Peserta & Armada", "Kontak"];
-
-function ProgressBar({ currentStep }: { currentStep: number }) {
+function StepProgressBar({ step }: { step: number }) {
   return (
-    <div className="mb-8 select-none">
-      <div className="relative">
-        {/* Background track line - accurately centered at Y = 20px (middle of 40px circle) */}
-        <div className="absolute left-6 right-6 top-5 -translate-y-1/2 h-[2px] bg-gray-200 dark:bg-gray-700 z-0" />
-
-        {/* Active animated progress fill line */}
+    <div className="mb-8">
+      <div className="relative flex items-center justify-between">
+        <div className="absolute top-5 left-0 right-0 h-0.5 bg-gray-200 dark:bg-gray-700" style={{ zIndex: 0 }} />
         <motion.div
-          className="absolute left-6 top-5 -translate-y-1/2 h-[2px] bg-primary-600 z-0 origin-left"
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: currentStep / (STEPS.length - 1) }}
-          transition={{ duration: 0.35, ease: "easeInOut" }}
-          style={{ width: "calc(100% - 48px)" }}
+          className="absolute top-5 left-0 h-0.5 bg-primary-500 origin-left"
+          style={{ zIndex: 0 }}
+          initial={false}
+          animate={{ width: `${(step / (STEPS.length - 1)) * 100}%` }}
+          transition={{ duration: 0.4, ease: "easeInOut" }}
         />
-
-        {/* Step circles & labels */}
-        <div className="relative z-10 flex items-start justify-between">
-          {STEPS.map((label, i) => {
-            const done = i < currentStep;
-            const active = i === currentStep;
-            return (
-              <div
-                key={label}
-                className="flex flex-col items-center"
-                style={{ width: "120px" }}
-              >
-                {/* Circle with solid background to cleanly obscure the line underneath */}
-                <div className="bg-white dark:bg-dark-800 p-1 rounded-full">
-                  <motion.div
-                    animate={{
-                      scale: active ? 1.08 : 1,
-                    }}
-                    transition={{ duration: 0.2 }}
-                    className={cn(
-                      "w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-200",
-                      done
-                        ? "bg-primary-600 text-white shadow-sm"
-                        : active
-                        ? "bg-primary-600 text-white ring-4 ring-primary-100 dark:ring-primary-950/60 shadow-sm"
-                        : "bg-gray-100 dark:bg-dark-700 text-gray-400 dark:text-gray-500"
-                    )}
-                  >
-                    {done ? (
-                      <Check className="h-4 w-4 text-white stroke-[3]" />
-                    ) : (
-                      <span>{i + 1}</span>
-                    )}
-                  </motion.div>
-                </div>
-
-                {/* Step label */}
-                <span
-                  className={cn(
-                    "text-xs font-semibold mt-1.5 text-center transition-colors duration-200",
-                    active
-                      ? "text-primary-600 dark:text-primary-400"
-                      : done
-                      ? "text-dark-700 dark:text-light-200"
-                      : "text-gray-400 dark:text-gray-500"
-                  )}
-                >
-                  {label}
-                </span>
+        {STEPS.map((s, i) => {
+          const done = i < step;
+          const current = i === step;
+          return (
+            <div key={i} className="relative flex flex-col items-center gap-2" style={{ zIndex: 1 }}>
+              <div className={cn(
+                "flex h-10 w-10 items-center justify-center rounded-full border-2 font-bold text-sm transition-all duration-300",
+                done    ? "border-primary-500 bg-primary-500 text-white"
+                : current ? "border-primary-500 bg-white dark:bg-dark-800 text-primary-600 dark:text-primary-400"
+                : "border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-400"
+              )}>
+                {done ? <Check className="h-4 w-4" /> : i + 1}
               </div>
-            );
-          })}
-        </div>
+              <span className={cn("text-xs font-medium",
+                current  ? "text-primary-600 dark:text-primary-400"
+                : done   ? "text-gray-500 dark:text-gray-400"
+                : "text-gray-400 dark:text-gray-600"
+              )}>{s.label}</span>
+            </div>
+          );
+        })}
       </div>
+      <p className="mt-4 text-center text-xs text-gray-400 dark:text-gray-500">
+        Langkah {step + 1} dari {STEPS.length}
+      </p>
     </div>
   );
 }
 
-// ─── Form Field Helpers ───────────────────────────────────────────────────────
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <label className="block text-sm font-semibold text-dark-800 dark:text-light-100 mb-2">
-      {children}
-    </label>
-  );
-}
+// --- FieldError ---
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-500 font-medium">
+    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-500">
       <AlertCircle className="h-3.5 w-3.5 shrink-0" />
       {message}
     </p>
   );
 }
 
-// ─── Text Input ───────────────────────────────────────────────────────────────
+// --- FormField wrapper ---
 
-function TextInput({
-  placeholder,
-  value,
-  onChange,
-  onBlur,
-  error,
-  icon: Icon,
-  type = "text",
-}: {
-  placeholder?: string;
-  value: string;
-  onChange: (v: string) => void;
-  onBlur?: () => void;
-  error?: string;
+function FormField({ label, icon: Icon, error, children }: {
+  label: string;
   icon?: React.ElementType;
-  type?: string;
+  error?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <div>
-      <div
-        className={cn(
-          "flex items-center gap-3 rounded-xl border px-4 py-3 bg-white dark:bg-dark-700 transition-colors duration-150",
-          error
-            ? "border-red-400"
-            : "border-gray-200 dark:border-gray-700 focus-within:border-primary-400"
-        )}
-      >
-        {Icon && (
-          <Icon className="h-5 w-5 text-gray-400 dark:text-gray-500 shrink-0" />
-        )}
-        <input
-          type={type}
-          placeholder={placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={onBlur}
-          className="flex-1 appearance-none border-0 bg-transparent text-sm font-medium text-dark-800 dark:text-light-100 placeholder:text-gray-400 outline-none min-w-0"
-        />
-      </div>
+    <div className="space-y-1.5">
+      <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+        {Icon && <Icon className="h-4 w-4 text-primary-500" />}
+        {label}
+      </label>
+      {children}
       <FieldError message={error} />
     </div>
   );
 }
 
-// ─── Number Input ─────────────────────────────────────────────────────────────
+// --- TextInput ---
 
-function NumberInput({
-  value,
-  onChange,
-  onBlur,
-  placeholder = "0",
-  error,
-  icon: Icon,
-}: {
+function TextInput({ value, onChange, onBlur, placeholder, type = "text", error }: {
+  value: string;
+  onChange: (v: string) => void;
+  onBlur?: () => void;
+  placeholder?: string;
+  type?: string;
+  error?: boolean;
+}) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
+      placeholder={placeholder}
+      className={cn(
+        "w-full appearance-none rounded-xl border bg-white dark:bg-dark-800 px-4 py-3",
+        "text-sm font-medium text-dark-800 dark:text-light-100 placeholder:text-gray-400",
+        "outline-none transition-colors duration-150",
+        error
+          ? "border-red-400"
+          : "border-gray-200 dark:border-gray-700 focus:border-primary-400"
+      )}
+    />
+  );
+}
+
+// --- NumberInput ---
+
+function NumberInput({ value, onChange, onBlur, placeholder, min, max, error }: {
   value: number;
   onChange: (v: number) => void;
   onBlur?: () => void;
   placeholder?: string;
-  error?: string;
-  icon?: React.ElementType;
+  min?: number;
+  max?: number;
+  error?: boolean;
 }) {
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/^0+(?=\d)/, "");
-    if (raw === "") {
-      onChange(0);
-      return;
-    }
-    const parsed = parseInt(raw, 10);
-    if (!isNaN(parsed)) {
-      onChange(parsed);
-    }
+    if (raw === "") { onChange(0); return; }
+    const n = parseInt(raw, 10);
+    if (!isNaN(n)) onChange(n);
   };
-
   return (
-    <div>
-      <div
-        className={cn(
-          "flex items-center gap-3 rounded-xl border px-4 py-3 bg-white dark:bg-dark-700 transition-colors duration-150",
-          error
-            ? "border-red-400"
-            : "border-gray-200 dark:border-gray-700 focus-within:border-primary-400"
-        )}
-      >
-        {Icon && (
-          <Icon className="h-5 w-5 text-gray-400 dark:text-gray-500 shrink-0" />
-        )}
-        <input
-          type="number"
-          value={value === 0 ? "" : value}
-          onChange={handleInputChange}
-          onBlur={onBlur}
-          placeholder={placeholder}
-          className="flex-1 appearance-none border-0 bg-transparent text-sm font-semibold text-dark-800 dark:text-light-100 placeholder:text-gray-400 outline-none min-w-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-        />
-      </div>
-      <FieldError message={error} />
-    </div>
+    <input
+      type="number"
+      value={value === 0 ? "" : value}
+      onChange={handleChange}
+      onBlur={onBlur}
+      placeholder={placeholder ?? "0"}
+      min={min}
+      max={max}
+      className={cn(
+        "w-full appearance-none rounded-xl border bg-white dark:bg-dark-800 px-4 py-3",
+        "text-sm font-semibold text-dark-800 dark:text-light-100 placeholder:text-gray-400",
+        "outline-none transition-colors duration-150",
+        "[&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+        error
+          ? "border-red-400"
+          : "border-gray-200 dark:border-gray-700 focus:border-primary-400"
+      )}
+    />
   );
 }
 
-// ─── Radio Card Group ─────────────────────────────────────────────────────────
+// --- SelectInput ---
 
-function RadioCard({
-  options,
-  value,
-  onChange,
-  error,
-  columns = 2,
-}: {
-  options: { value: string; label: string; sub?: string }[];
+function SelectInput({ value, onChange, onBlur, error, options, placeholder }: {
   value: string;
   onChange: (v: string) => void;
-  error?: string;
-  columns?: number;
+  onBlur?: () => void;
+  error?: boolean;
+  options: { value: string; label: string }[];
+  placeholder?: string;
 }) {
   return (
-    <div>
-      <div
-        className={cn(
-          "grid gap-3",
-          columns === 2 && "grid-cols-2",
-          columns === 3 && "grid-cols-1 sm:grid-cols-3",
-          columns === 4 && "grid-cols-2 sm:grid-cols-4"
-        )}
-      >
-        {options.map((opt) => {
-          const selected = value === opt.value;
-          return (
-            <motion.button
-              key={opt.value}
-              type="button"
-              whileTap={{ scale: 0.98 }}
-              onClick={() => onChange(opt.value)}
-              className={cn(
-                "relative rounded-xl border-2 p-3 text-left transition-all duration-200",
-                selected
-                  ? "border-primary-500 bg-primary-50/80 dark:bg-primary-900/30 shadow-sm"
-                  : "border-gray-200 dark:border-gray-700 hover:border-primary-300 bg-white dark:bg-dark-700"
-              )}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p
-                    className={cn(
-                      "text-sm font-semibold leading-snug",
-                      selected
-                        ? "text-primary-700 dark:text-primary-300"
-                        : "text-dark-700 dark:text-light-200"
-                    )}
-                  >
-                    {opt.label}
-                  </p>
-                  {opt.sub && (
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                      {opt.sub}
-                    </p>
-                  )}
-                </div>
-                <CheckCircle2
-                  className={cn(
-                    "h-4 w-4 shrink-0 mt-0.5 transition-opacity duration-150",
-                    selected
-                      ? "opacity-100 text-primary-600 dark:text-primary-400"
-                      : "opacity-0"
-                  )}
-                />
-              </div>
-            </motion.button>
-          );
-        })}
-      </div>
-      <FieldError message={error} />
-    </div>
-  );
-}
-
-// ─── Step 1 ───────────────────────────────────────────────────────────────────
-
-function Step1({
-  control,
-  errors,
-}: {
-  control: ReturnType<typeof useForm<FormData>>["control"];
-  errors: Partial<Record<keyof FormData, { message?: string }>>;
-}) {
-  const destinationOptions = Object.keys(BASE_PRICES).map((d) => ({
-    value: d,
-    label: d,
-    sub: `Dari ${formatRupiah(BASE_PRICES[d])} / siswa`,
-  }));
-
-  const durationOptions = Object.keys(DURATION_MULT).map((d) => ({
-    value: d,
-    label: d,
-    sub: `×${DURATION_MULT[d].toFixed(1)} paket`,
-  }));
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <FieldLabel>
-          <span className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-primary-500" />
-            Pilih Destinasi Wisata
-          </span>
-        </FieldLabel>
-        <Controller
-          name="destination"
-          control={control}
-          render={({ field }) => (
-            <RadioCard
-              options={destinationOptions}
-              value={field.value ?? ""}
-              onChange={field.onChange}
-              error={errors.destination?.message}
-              columns={2}
-            />
-          )}
-        />
-      </div>
-
-      <div>
-        <FieldLabel>
-          <span className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-primary-500" />
-            Durasi Perjalanan
-          </span>
-        </FieldLabel>
-        <Controller
-          name="duration"
-          control={control}
-          render={({ field }) => (
-            <RadioCard
-              options={durationOptions}
-              value={field.value ?? ""}
-              onChange={field.onChange}
-              error={errors.duration?.message}
-              columns={4}
-            />
-          )}
-        />
-      </div>
-    </div>
-  );
-}
-
-// ─── Step 2 ───────────────────────────────────────────────────────────────────
-
-function Step2({
-  control,
-  errors,
-}: {
-  control: ReturnType<typeof useForm<FormData>>["control"];
-  errors: Partial<Record<keyof FormData, { message?: string }>>;
-}) {
-  const busOptions = Object.entries(BUS_LABELS).map(([value, label]) => ({
-    value,
-    label,
-    sub: `×${BUS_MULT[value].toFixed(1)} armada`,
-  }));
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <FieldLabel>
-          <span className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-primary-500" />
-            Jumlah Siswa
-          </span>
-        </FieldLabel>
-        <Controller
-          name="studentCount"
-          control={control}
-          render={({ field }) => (
-            <NumberInput
-              value={field.value ?? 0}
-              onChange={field.onChange}
-              onBlur={field.onBlur}
-              placeholder="Contoh: 40"
-              error={errors.studentCount?.message}
-              icon={Users}
-            />
-          )}
-        />
-        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 font-medium flex items-center gap-1.5">
-          <Info className="h-3.5 w-3.5 text-primary-500 shrink-0" />
-          Ketentuan Guru: Setiap kelipatan 20 siswa, 1 guru pendamping gratis.
-        </p>
-      </div>
-
-      <div>
-        <FieldLabel>
-          <span className="flex items-center gap-2">
-            <Bus className="h-4 w-4 text-primary-500" />
-            Tipe Armada Bus
-          </span>
-        </FieldLabel>
-        <Controller
-          name="busType"
-          control={control}
-          render={({ field }) => (
-            <RadioCard
-              options={busOptions}
-              value={field.value ?? ""}
-              onChange={field.onChange}
-              error={errors.busType?.message}
-              columns={3}
-            />
-          )}
-        />
-      </div>
-
-      <div>
-        <FieldLabel>
-          <span className="flex items-center gap-2">
-            <User className="h-4 w-4 text-primary-500" />
-            Jumlah Guru / Pendamping
-          </span>
-        </FieldLabel>
-        <Controller
-          name="teacherCount"
-          control={control}
-          render={({ field }) => (
-            <NumberInput
-              value={field.value ?? 0}
-              onChange={field.onChange}
-              onBlur={field.onBlur}
-              placeholder="Contoh: 2"
-              error={errors.teacherCount?.message}
-              icon={User}
-            />
-          )}
-        />
-      </div>
-    </div>
-  );
-}
-
-// ─── Step 3 ───────────────────────────────────────────────────────────────────
-
-function Step3({
-  control,
-  errors,
-}: {
-  control: ReturnType<typeof useForm<FormData>>["control"];
-  errors: Partial<Record<keyof FormData, { message?: string }>>;
-}) {
-  return (
-    <div className="space-y-5">
-      <div>
-        <FieldLabel>
-          <span className="flex items-center gap-2">
-            <School className="h-4 w-4 text-primary-500" />
-            Nama Sekolah
-          </span>
-        </FieldLabel>
-        <Controller
-          name="schoolName"
-          control={control}
-          render={({ field }) => (
-            <TextInput
-              placeholder="Contoh: SMA Negeri 1 Kebumen"
-              value={field.value ?? ""}
-              onChange={field.onChange}
-              onBlur={field.onBlur}
-              error={errors.schoolName?.message}
-              icon={School}
-            />
-          )}
-        />
-      </div>
-
-      <div>
-        <FieldLabel>
-          <span className="flex items-center gap-2">
-            <User className="h-4 w-4 text-primary-500" />
-            Nama PIC / Penanggung Jawab
-          </span>
-        </FieldLabel>
-        <Controller
-          name="contactName"
-          control={control}
-          render={({ field }) => (
-            <TextInput
-              placeholder="Contoh: Budi Prasetyo (Ketua OSIS)"
-              value={field.value ?? ""}
-              onChange={field.onChange}
-              onBlur={field.onBlur}
-              error={errors.contactName?.message}
-              icon={User}
-            />
-          )}
-        />
-      </div>
-
-      <div>
-        <FieldLabel>
-          <span className="flex items-center gap-2">
-            <Phone className="h-4 w-4 text-primary-500" />
-            Nomor WhatsApp
-          </span>
-        </FieldLabel>
-        <Controller
-          name="whatsapp"
-          control={control}
-          render={({ field }) => (
-            <TextInput
-              type="tel"
-              placeholder="Contoh: 081234567890"
-              value={field.value ?? ""}
-              onChange={field.onChange}
-              onBlur={field.onBlur}
-              error={errors.whatsapp?.message}
-              icon={Phone}
-            />
-          )}
-        />
-      </div>
-
-      {/* WhatsApp Note */}
-      <div className="rounded-xl bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-800 p-4 flex gap-3">
-        <MessageCircle className="h-5 w-5 text-primary-600 dark:text-primary-400 shrink-0 mt-0.5" />
-        <div>
-          <p className="text-sm font-bold text-primary-800 dark:text-primary-200">
-            Penawaran Resmi via WhatsApp
-          </p>
-          <p className="text-xs text-primary-700/80 dark:text-primary-300/80 mt-1 leading-relaxed">
-            Data ini akan langsung kami siapkan dalam bentuk dokumen penawaran resmi berstempel dan rincian itinerary lengkap via WhatsApp.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Summary Card ─────────────────────────────────────────────────────────────
-
-interface SummaryCardProps {
-  watchValues: Partial<FormData>;
-  estimate: EstimateResult;
-}
-
-function SummaryCard({ watchValues, estimate }: SummaryCardProps) {
-  const hasDestination = !!watchValues.destination;
-  const studentCount = watchValues.studentCount ?? 0;
-  const teacherCount = watchValues.teacherCount ?? 0;
-
-  return (
-    <div
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
       className={cn(
-        "rounded-2xl border",
-        "bg-white dark:bg-dark-800",
-        "border-gray-100 dark:border-gray-800",
-        "shadow-xl shadow-primary-900/5",
-        "overflow-hidden",
-        "lg:sticky lg:top-24"
+        "w-full appearance-none rounded-xl border bg-white dark:bg-dark-800 px-4 py-3",
+        "text-sm font-medium text-dark-800 dark:text-light-100",
+        "outline-none transition-colors duration-150 cursor-pointer",
+        error
+          ? "border-red-400"
+          : "border-gray-200 dark:border-gray-700 focus:border-primary-400"
       )}
     >
-      {/* Header */}
-      <div className="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 px-6 py-5 text-white">
-        <div className="flex items-center gap-2 mb-1">
-          <Calculator className="h-5 w-5 text-accent-300" />
-          <h4 className="text-base font-bold">Ringkasan Estimasi Biaya</h4>
-        </div>
-        <p className="text-xs text-primary-200">
-          Kalkulasi real-time transparan sesuai pilihan perjalanan
-        </p>
-      </div>
+      {placeholder && <option value="" disabled>{placeholder}</option>}
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>{opt.label}</option>
+      ))}
+    </select>
+  );
+}
 
-      <div className="p-6 space-y-5">
-        {/* Trip details */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-              <MapPin className="h-4 w-4 text-primary-500" />
-              Destinasi
-            </span>
-            <span className="font-bold text-dark-800 dark:text-light-100">
-              {watchValues.destination || "—"}
-            </span>
-          </div>
+// --- RadioCardGroup ---
 
-          <div className="flex items-center justify-between text-sm">
-            <span className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-              <CalendarDays className="h-4 w-4 text-primary-500" />
-              Durasi
-            </span>
-            <span className="font-bold text-dark-800 dark:text-light-100">
-              {watchValues.duration || "—"}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between text-sm">
-            <span className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-              <Bus className="h-4 w-4 text-primary-500" />
-              Armada
-            </span>
-            <span className="font-bold text-dark-800 dark:text-light-100 text-right">
-              {watchValues.busType
-                ? BUS_LABELS[watchValues.busType] || watchValues.busType
-                : "—"}
-            </span>
-          </div>
-        </div>
-
-        {/* Breakdown */}
-        {hasDestination && studentCount >= 20 && (
-          <div className="space-y-2.5 border-t border-gray-100 dark:border-gray-800 pt-4">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-              Rincian Peserta
-            </p>
-
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-300">
-                Siswa ({studentCount} orang)
-              </span>
-              <span className="font-semibold text-dark-800 dark:text-light-100">
-                {formatRupiah(estimate.totalStudentsPrice)}
-              </span>
-            </div>
-
-            {teacherCount > 0 && (
-              <div className="flex justify-between text-sm items-center">
-                <div className="flex flex-col">
-                  <span className="text-gray-600 dark:text-gray-300">
-                    Guru ({teacherCount} orang)
-                  </span>
-                  {estimate.actualFreeTeachers > 0 && (
-                    <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                      {estimate.actualFreeTeachers === teacherCount
-                        ? `(Semua ${teacherCount} guru gratis)`
-                        : `(${estimate.actualFreeTeachers} gratis, ${estimate.payingTeachers} bayar)`}
-                    </span>
-                  )}
-                </div>
-                <span
-                  className={cn(
-                    "font-bold",
-                    estimate.totalTeachersPrice === 0
-                      ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded text-xs"
-                      : "text-dark-800 dark:text-light-100"
-                  )}
-                >
-                  {estimate.totalTeachersPrice === 0
-                    ? "GRATIS"
-                    : formatRupiah(estimate.totalTeachersPrice)}
-                </span>
+function RadioCardGroup({ value, onChange, error, options, columns = 3 }: {
+  value: string;
+  onChange: (v: string) => void;
+  error?: boolean;
+  options: { value: string; label: string; sublabel?: string }[];
+  columns?: 2 | 3 | 4;
+}) {
+  return (
+    <div className={cn(
+      "grid gap-3",
+      columns === 2 && "grid-cols-2",
+      columns === 3 && "grid-cols-1 sm:grid-cols-3",
+      columns === 4 && "grid-cols-2 sm:grid-cols-4",
+      error && "ring-1 ring-red-400 rounded-xl p-1"
+    )}>
+      {options.map((opt) => {
+        const selected = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "relative rounded-xl border-2 p-3 text-left transition-colors duration-150",
+              selected
+                ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
+                : "border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-800 hover:border-primary-300"
+            )}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className={cn("text-sm font-semibold leading-snug",
+                  selected ? "text-primary-700 dark:text-primary-300" : "text-gray-800 dark:text-gray-200"
+                )}>{opt.label}</p>
+                {opt.sublabel && <p className="mt-0.5 text-xs text-gray-400">{opt.sublabel}</p>}
               </div>
-            )}
-
-            <div className="flex justify-between text-xs text-gray-400 pt-1 border-t border-dashed border-gray-100 dark:border-gray-800">
-              <span>Biaya per siswa</span>
-              <span className="font-semibold">{formatRupiah(estimate.pricePerStudent)}</span>
+              <CheckCircle2 className={cn(
+                "h-4 w-4 shrink-0 mt-0.5 transition-opacity duration-150",
+                selected ? "opacity-100 text-primary-600 dark:text-primary-400" : "opacity-0 text-primary-600"
+              )} />
             </div>
-          </div>
-        )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
-        {/* Grand Total */}
-        <div className="rounded-xl bg-gradient-to-br from-primary-50 to-primary-100/50 dark:from-primary-900/30 dark:to-primary-900/10 border border-primary-200 dark:border-primary-800 p-4">
-          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
-            Estimasi Total Budget
+// --- Step1 ---
+
+function Step1({ control, errors }: {
+  control: ReturnType<typeof useForm<FormData>>["control"];
+  errors: ReturnType<typeof useForm<FormData>>["formState"]["errors"];
+}) {
+  return (
+    <div className="space-y-6">
+      <Controller name="destination" control={control} render={({ field }) => (
+        <FormField label="Destinasi Wisata" icon={MapPin} error={errors.destination?.message}>
+          <SelectInput
+            value={field.value} onChange={field.onChange} onBlur={field.onBlur}
+            error={!!errors.destination} placeholder="-- Pilih Destinasi --"
+            options={DESTINATIONS}
+          />
+        </FormField>
+      )} />
+      <Controller name="duration" control={control} render={({ field }) => (
+        <FormField label="Durasi Perjalanan" icon={Clock} error={errors.duration?.message}>
+          <RadioCardGroup
+            value={field.value} onChange={field.onChange} error={!!errors.duration} columns={2}
+            options={DURATIONS.map((d) => ({ value: d.value, label: d.label, sublabel: d.value }))}
+          />
+        </FormField>
+      )} />
+    </div>
+  );
+}
+
+// --- Step2 ---
+
+function Step2({ control, errors }: {
+  control: ReturnType<typeof useForm<FormData>>["control"];
+  errors: ReturnType<typeof useForm<FormData>>["formState"]["errors"];
+}) {
+  return (
+    <div className="space-y-6">
+      <Controller name="studentCount" control={control} render={({ field }) => (
+        <FormField label="Jumlah Siswa" icon={Users} error={errors.studentCount?.message}>
+          <NumberInput value={field.value} onChange={field.onChange} onBlur={field.onBlur}
+            placeholder="Minimal 20 siswa" min={20} max={500} error={!!errors.studentCount} />
+        </FormField>
+      )} />
+      <Controller name="teacherCount" control={control} render={({ field }) => (
+        <FormField label="Jumlah Guru Pendamping" icon={User} error={errors.teacherCount?.message}>
+          <NumberInput value={field.value} onChange={field.onChange} onBlur={field.onBlur}
+            placeholder="Minimal 1 guru" min={1} max={50} error={!!errors.teacherCount} />
+          <p className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 mt-1.5">
+            <Info className="h-3.5 w-3.5 shrink-0" />
+            Setiap 20 siswa mendapat 1 guru pendamping gratis.
           </p>
-          <div className="text-2xl font-black text-primary-700 dark:text-primary-300">
-            {hasDestination && studentCount >= 20 ? (
-              <AnimatedNumber value={estimate.grandTotal} />
-            ) : (
-              "—"
-            )}
-          </div>
-          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
-            *Belum termasuk tiket wahana opsional
+        </FormField>
+      )} />
+      <Controller name="busType" control={control} render={({ field }) => (
+        <FormField label="Tipe Armada Bus" icon={Bus} error={errors.busType?.message}>
+          <RadioCardGroup
+            value={field.value} onChange={field.onChange} error={!!errors.busType} columns={3}
+            options={BUS_TYPES.map((b) => ({ value: b.value, label: b.label, sublabel: b.sublabel }))}
+          />
+        </FormField>
+      )} />
+    </div>
+  );
+}
+
+// --- Step3 ---
+
+function Step3({ control, errors }: {
+  control: ReturnType<typeof useForm<FormData>>["control"];
+  errors: ReturnType<typeof useForm<FormData>>["formState"]["errors"];
+}) {
+  return (
+    <div className="space-y-6">
+      <Controller name="schoolName" control={control} render={({ field }) => (
+        <FormField label="Nama Sekolah" icon={School} error={errors.schoolName?.message}>
+          <TextInput value={field.value} onChange={field.onChange} onBlur={field.onBlur}
+            placeholder="Contoh: SMA Negeri 1 Kebumen" error={!!errors.schoolName} />
+        </FormField>
+      )} />
+      <Controller name="contactName" control={control} render={({ field }) => (
+        <FormField label="Nama Perwakilan" icon={User} error={errors.contactName?.message}>
+          <TextInput value={field.value} onChange={field.onChange} onBlur={field.onBlur}
+            placeholder="Contoh: Budi (Ketua OSIS)" error={!!errors.contactName} />
+        </FormField>
+      )} />
+      <Controller name="whatsapp" control={control} render={({ field }) => (
+        <FormField label="Nomor WhatsApp" icon={Phone} error={errors.whatsapp?.message}>
+          <TextInput value={field.value} onChange={field.onChange} onBlur={field.onBlur}
+            placeholder="Contoh: 081234567890" type="tel" error={!!errors.whatsapp} />
+        </FormField>
+      )} />
+      <div className="flex gap-3 rounded-xl border border-blue-100 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/10 p-4">
+        <MessageCircle className="h-5 w-5 shrink-0 text-blue-500 mt-0.5" />
+        <div>
+          <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">Penawaran Resmi via WhatsApp</p>
+          <p className="mt-0.5 text-xs text-blue-600 dark:text-blue-400 leading-relaxed">
+            Data ini akan kami siapkan dalam bentuk penawaran resmi berstempel beserta itinerary lengkap
+            dan dikirim langsung via WhatsApp.
           </p>
         </div>
-
-        {/* DP info */}
-        {hasDestination && studentCount >= 20 && (
-          <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 px-3 py-2 text-center">
-            <p className="text-xs text-amber-800 dark:text-amber-300">
-              Estimasi DP 30%:{" "}
-              <span className="font-bold">
-                {formatRupiah(estimate.grandTotal * 0.3)}
-              </span>
-            </p>
-          </div>
-        )}
-
-        {!hasDestination && (
-          <div className="text-center py-6">
-            <Sparkles className="h-8 w-8 text-primary-400/50 mx-auto mb-2" />
-            <p className="text-sm text-gray-400">
-              Pilih destinasi di form untuk melihat kalkulasi harga otomatis
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
-// ─── Success Screen ───────────────────────────────────────────────────────────
+// --- SummaryCard ---
 
-function SuccessScreen({
-  data,
-  estimate,
-  onReset,
-}: {
-  data: FormData;
-  estimate: EstimateResult;
-  onReset: () => void;
-}) {
+function SummaryRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <motion.div
-      key="success"
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="flex flex-col items-center text-center py-8 px-4 space-y-6"
-    >
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
-        className="w-20 h-20 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center ring-8 ring-emerald-50 dark:ring-emerald-950/30"
-      >
-        <CheckCircle2 className="h-10 w-10 text-emerald-500" />
-      </motion.div>
-
-      <div>
-        <h3 className="text-2xl font-extrabold text-dark-800 dark:text-light-100">
-          Estimasi Berhasil Terkirim!
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 max-w-sm mx-auto leading-relaxed">
-          Tim Wara Wiri akan segera menghubungi PIC <span className="font-semibold text-dark-800 dark:text-light-100">{data.contactName}</span> ({data.schoolName}) di WhatsApp <span className="font-semibold text-primary-600">{data.whatsapp}</span>.
-        </p>
-      </div>
-
-      <div className="bg-gray-50 dark:bg-dark-700/60 border border-gray-100 dark:border-gray-700 rounded-xl p-5 w-full text-sm space-y-3">
-        <div className="flex justify-between">
-          <span className="text-gray-400">Destinasi & Durasi</span>
-          <span className="font-bold">{data.destination} ({data.duration})</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-400">Total Peserta</span>
-          <span className="font-bold">{data.studentCount} Siswa + {data.teacherCount} Guru</span>
-        </div>
-        <div className="flex justify-between border-t border-gray-200 dark:border-gray-600 pt-2">
-          <span className="text-gray-500 font-medium">Estimasi Grand Total</span>
-          <span className="font-black text-lg text-primary-600 dark:text-primary-400">
-            {formatRupiah(estimate.grandTotal)}
-          </span>
-        </div>
-      </div>
-
-      <Button intent="outline" size="lg" onClick={onReset} className="w-full">
-        Hitung Estimasi Paket Lain
-      </Button>
-    </motion.div>
+    <div className="flex items-start justify-between gap-2 py-2 text-sm">
+      <span className="text-gray-500 dark:text-gray-400 shrink-0">{label}</span>
+      <span className={cn("text-right font-semibold",
+        highlight ? "text-green-600 dark:text-green-400" : "text-gray-800 dark:text-gray-200"
+      )}>{value}</span>
+    </div>
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+function SummaryCard({ values }: { values: EstimatorFormValues }) {
+  const result = calculateEstimation(values);
+  const dest   = getDestination(values.destination);
+  const dur    = getDuration(values.duration);
+  const bus    = getBusType(values.busType);
+
+  return (
+    <Card hoverable={false} className="overflow-visible">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-100 dark:bg-primary-900/30">
+            <Calculator className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+          </div>
+          <div>
+            <CardTitle className="text-lg">Ringkasan Estimasi</CardTitle>
+            <CardDescription>Perkiraan biaya berdasarkan pilihan trip kamu.</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="divide-y divide-gray-100 dark:divide-gray-800 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-dark-900/40 px-4">
+          <SummaryRow label="Destinasi" value={dest.label} />
+          <SummaryRow label="Durasi"    value={dur.label} />
+          <SummaryRow label="Tipe Bus"  value={bus.label} />
+        </div>
+        <div className="divide-y divide-gray-100 dark:divide-gray-800 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-dark-900/40 px-4">
+          <SummaryRow label="Jumlah Siswa" value={`${values.studentCount} orang`} />
+          <SummaryRow label="Jumlah Guru"  value={`${values.teacherCount} orang`} />
+          {result.freeTeachers > 0 && (
+            <SummaryRow label="Guru Gratis" value={`${result.freeTeachers} orang`} highlight />
+          )}
+        </div>
+        <div className="divide-y divide-gray-100 dark:divide-gray-800 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-dark-900/40 px-4">
+          <SummaryRow label="Harga per Siswa" value={formatRupiah(result.pricePerStudent)} />
+          {result.payingTeachers > 0 && (
+            <SummaryRow label={`Guru Bayar (${result.payingTeachers})`} value={formatRupiah(result.totalTeachersPrice)} />
+          )}
+        </div>
+        <div className="mt-2 rounded-xl bg-primary-600 px-5 py-4 text-white">
+          <p className="text-xs font-medium opacity-80 mb-1">Estimasi Total Budget</p>
+          <div className="text-2xl font-bold tracking-tight">
+            <AnimatedNumber value={result.grandTotal} />
+          </div>
+          <p className="text-xs opacity-60 mt-1">*Belum termasuk akomodasi dan tiket masuk</p>
+        </div>
+        <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+          Estimasi DP 30%:{" "}
+          <span className="font-semibold text-gray-600 dark:text-gray-400">
+            {formatRupiah(result.grandTotal * 0.3)}
+          </span>
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// --- Slide variants ---
+
+const slideVariants = {
+  enter: (dir: number) => ({ x: dir > 0 ? 40 : -40, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit:  (dir: number) => ({ x: dir > 0 ? -40 : 40, opacity: 0 }),
+};
+
+// --- Main TripEstimator ---
 
 export function TripEstimator() {
   const [step, setStep] = useState(0);
-  const [direction, setDirection] = useState(1);
-  const [submitted, setSubmitted] = useState(false);
-  const [submittedData, setSubmittedData] = useState<FormData | null>(null);
+  const [dir, setDir]   = useState(1);
 
   const {
     control,
+    handleSubmit,
     trigger,
     watch,
-    handleSubmit,
-    reset,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<FormData>({
-    resolver: zodResolver(fullSchema),
-    mode: "onChange",
+    resolver: zodResolver(schema),
     defaultValues: {
-      destination: "Bali",
-      duration: "3D2N",
-      studentCount: 40,
-      busType: "Standard",
-      teacherCount: 2,
-      schoolName: "",
-      contactName: "",
-      whatsapp: "",
+      destination:  "jogja",
+      duration:     "3D2N",
+      studentCount: 30,
+      teacherCount: 3,
+      busType:      "standard",
+      schoolName:   "",
+      contactName:  "",
+      whatsapp:     "",
     },
+    mode: "onTouched",
   });
 
-  const watchValues = watch();
+  const watched = watch();
+  const estimatorValues: EstimatorFormValues = {
+    destination:  watched.destination  ?? "jogja",
+    duration:     watched.duration     ?? "3D2N",
+    studentCount: watched.studentCount ?? 30,
+    teacherCount: watched.teacherCount ?? 3,
+    busType:      watched.busType      ?? "standard",
+    schoolName:   watched.schoolName   ?? "",
+    contactName:  watched.contactName  ?? "",
+    whatsapp:     watched.whatsapp     ?? "",
+  };
 
-  const estimate = calculateEstimate({
-    destination: watchValues.destination ?? "Bali",
-    duration: watchValues.duration ?? "3D2N",
-    studentCount: watchValues.studentCount ?? 40,
-    busType: watchValues.busType ?? "Standard",
-    teacherCount: watchValues.teacherCount ?? 2,
-  });
+  const handleNext = async () => {
+    const valid = await trigger(STEP_FIELDS[step]);
+    if (valid) { setDir(1); setStep((s) => Math.min(s + 1, STEPS.length - 1)); }
+  };
 
-  const stepFields: (keyof FormData)[][] = [
-    ["destination", "duration"],
-    ["studentCount", "busType", "teacherCount"],
-    ["schoolName", "contactName", "whatsapp"],
-  ];
-
-  const handleNext = useCallback(async () => {
-    const valid = await trigger(stepFields[step] as (keyof FormData)[]);
-    if (valid) {
-      setDirection(1);
-      setStep((s) => Math.min(s + 1, STEPS.length - 1));
-    }
-  }, [step, trigger]);
-
-  const handleBack = useCallback(() => {
-    setDirection(-1);
+  const handleBack = () => {
+    setDir(-1);
     setStep((s) => Math.max(s - 1, 0));
-  }, []);
-
-  const onSubmit = (data: FormData) => {
-    setSubmittedData(data);
-
-    const quotaFree = Math.floor(data.studentCount / 20);
-    const actualFree = Math.min(data.teacherCount, quotaFree);
-    const payT = Math.max(0, data.teacherCount - quotaFree);
-
-    const msg = [
-      `*PERMINTAAN ESTIMASI TRIP - WARA WIRI*`,
-      ``,
-      `*Data Sekolah*`,
-      `- Sekolah: ${data.schoolName}`,
-      `- PIC: ${data.contactName}`,
-      `- WhatsApp: ${data.whatsapp}`,
-      ``,
-      `*Detail Perjalanan*`,
-      `- Destinasi: ${data.destination}`,
-      `- Durasi: ${data.duration}`,
-      `- Tipe Armada: ${BUS_LABELS[data.busType]}`,
-      ``,
-      `*Rincian Peserta*`,
-      `- Siswa: ${data.studentCount} orang`,
-      `- Guru Pendamping: ${data.teacherCount} orang (${actualFree} gratis, ${payT} berbayar)`,
-      ``,
-      `*Estimasi Biaya*`,
-      `- Biaya per Siswa: ${formatRupiah(estimate.pricePerStudent)}`,
-      `- Total Biaya Siswa: ${formatRupiah(estimate.totalStudentsPrice)}`,
-      `- Total Biaya Guru: ${estimate.totalTeachersPrice === 0 ? "Gratis" : formatRupiah(estimate.totalTeachersPrice)}`,
-      `- Estimasi Total: ${formatRupiah(estimate.grandTotal)}`,
-      `- Estimasi DP (30%): ${formatRupiah(estimate.grandTotal * 0.3)}`,
-      ``,
-      `Mohon konfirmasi dan kirimkan dokumen penawaran resmi beserta itinerary lengkap. Terima kasih.`,
-    ].join("\n");
-
-    const encoded = encodeURIComponent(msg);
-    window.open(`https://wa.me/${ADMIN_WA}?text=${encoded}`, "_blank");
-
-    setSubmitted(true);
   };
 
-  const handleReset = () => {
-    reset({
-      destination: "Bali",
-      duration: "3D2N",
-      studentCount: 40,
-      busType: "Standard",
-      teacherCount: 2,
-      schoolName: "",
-      contactName: "",
-      whatsapp: "",
-    });
-    setStep(0);
-    setSubmitted(false);
-    setSubmittedData(null);
-    setDirection(1);
-  };
-
-  const slideVariants = {
-    enter: (dir: number) => ({
-      x: dir > 0 ? 40 : -40,
-      opacity: 0,
-    }),
-    center: { x: 0, opacity: 1 },
-    exit: (dir: number) => ({
-      x: dir > 0 ? -40 : 40,
-      opacity: 0,
-    }),
+  const onSubmit: SubmitHandler<FormData> = (data) => {
+    const result = calculateEstimation(data);
+    const msg    = buildWhatsAppMessage(data, result);
+    const url    = `https://wa.me/${ADMIN_WA_NUMBER}?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   return (
     <Section
       id="estimator"
       heading="Estimasi Biaya Trip Sekolahmu"
-      description="Hitung perkiraan budget study tour sekolah secara instan, transparan, dan terstandarisasi."
+      description="Hitung perkiraan biaya study tour kelasmu secara instan. Transparan, mudah, dan tanpa ribet."
       align="center"
-      className="relative overflow-hidden scroll-mt-20 pt-20 md:pt-24 pb-20 bg-gradient-to-br from-primary-50 via-light-100 to-accent-50/30 dark:from-dark-900 dark:via-dark-900 dark:to-primary-950/40"
+      className="bg-gradient-to-b from-gray-50 to-white dark:from-dark-900/60 dark:to-dark-900"
     >
-      {/* Decorative dot grid */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-30 dark:opacity-10"
-        style={{
-          backgroundImage: `radial-gradient(circle, #0066CC22 1px, transparent 1px)`,
-          backgroundSize: "32px 32px",
-        }}
-      />
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 lg:grid-cols-[1fr_380px] lg:items-start">
 
-      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8 xl:gap-12 items-start">
-        {/* ── LEFT: Form Panel ──────────────────────────────────────────── */}
-        <div className="rounded-2xl bg-white dark:bg-dark-800 border border-gray-100 dark:border-gray-800 shadow-xl shadow-primary-900/5 p-6 md:p-8">
-          <AnimatePresence mode="wait" initial={false}>
-            {submitted && submittedData ? (
-              <SuccessScreen
-                key="success"
-                data={submittedData}
-                estimate={estimate}
-                onReset={handleReset}
-              />
-            ) : (
-              <motion.div key="form" initial={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <ProgressBar currentStep={step} />
+        {/* Left: Multi-step Form */}
+        <Card hoverable={false} className="p-6 sm:p-8">
+          <StepProgressBar step={step} />
 
-                {/* Step Title */}
-                <AnimatePresence mode="wait" custom={direction}>
-                  <motion.div
-                    key={`title-${step}`}
-                    custom={direction}
-                    variants={slideVariants}
-                    initial="enter"
-                    animate="center"
-                    exit="exit"
-                    transition={{ duration: 0.25, ease: "easeInOut" }}
-                    className="mb-6"
-                  >
-                    <h3 className="text-xl font-bold text-dark-800 dark:text-light-100">
-                      {step === 0 && "Langkah 1: Destinasi & Durasi"}
-                      {step === 1 && "Langkah 2: Jumlah Peserta & Armada"}
-                      {step === 2 && "Langkah 3: Data Kontak Sekolah"}
-                    </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      {step === 0 && "Tentukan destinasi dan durasi perjalanan sekolah."}
-                      {step === 1 && "Tentukan jumlah peserta serta armada bus yang diinginkan."}
-                      {step === 2 && "Isi kontak penanggung jawab untuk pengiriman penawaran resmi."}
-                    </p>
-                  </motion.div>
-                </AnimatePresence>
-
-                {/* Step Content */}
-                <form onSubmit={handleSubmit(onSubmit)}>
-                  <AnimatePresence mode="wait" custom={direction}>
-                    <motion.div
-                      key={`step-${step}`}
-                      custom={direction}
-                      variants={slideVariants}
-                      initial="enter"
-                      animate="center"
-                      exit="exit"
-                      transition={{ duration: 0.28, ease: "easeInOut" }}
-                    >
-                      {step === 0 && <Step1 control={control} errors={errors} />}
-                      {step === 1 && <Step2 control={control} errors={errors} />}
-                      {step === 2 && <Step3 control={control} errors={errors} />}
-                    </motion.div>
-                  </AnimatePresence>
-
-                  {/* Navigation Buttons */}
-                  <div className="flex items-center gap-3 sm:gap-4 mt-8 pt-5 border-t border-gray-100 dark:border-gray-800">
-                    {step > 0 && (
-                      <Button
-                        type="button"
-                        intent="outline"
-                        className="flex-1 h-11 text-sm font-semibold gap-2"
-                        onClick={handleBack}
-                      >
-                        <ChevronLeft className="h-4 w-4 shrink-0" />
-                        <span>Kembali</span>
-                      </Button>
-                    )}
-
-                    {step < STEPS.length - 1 ? (
-                      <Button
-                        type="button"
-                        intent="primary"
-                        className="flex-1 h-11 text-sm font-semibold gap-2"
-                        onClick={handleNext}
-                      >
-                        <span>Lanjut</span>
-                        <ChevronRight className="h-4 w-4 shrink-0" />
-                      </Button>
-                    ) : (
-                      <Button
-                        type="submit"
-                        intent="secondary"
-                        className="flex-1 h-11 text-xs sm:text-sm font-bold shadow-lg shadow-secondary-500/25 gap-2 px-2 sm:px-4"
-                      >
-                        <MessageCircle className="h-4 w-4 shrink-0" />
-                        <span>Kirim Penawaran via WA</span>
-                      </Button>
-                    )}
-                  </div>
-                </form>
-              </motion.div>
-            )}
+          <AnimatePresence mode="wait" custom={dir}>
+            <motion.div
+              key={`title-${step}`}
+              custom={dir}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.22, ease: "easeInOut" }}
+              className="mb-6"
+            >
+              <h3 className="text-lg font-bold text-dark-800 dark:text-light-100">
+                {step === 0 && "Langkah 1: Destinasi & Durasi"}
+                {step === 1 && "Langkah 2: Jumlah Peserta & Armada"}
+                {step === 2 && "Langkah 3: Data Kontak Sekolah"}
+              </h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {step === 0 && "Tentukan destinasi dan durasi perjalanan study tour."}
+                {step === 1 && "Masukkan jumlah peserta dan pilih armada bus."}
+                {step === 2 && "Isi data kontak penanggung jawab sekolah."}
+              </p>
+            </motion.div>
           </AnimatePresence>
-        </div>
 
-        {/* ── RIGHT: Summary Card ────────────────────────────────────────── */}
-        <SummaryCard watchValues={watchValues} estimate={estimate} />
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <AnimatePresence mode="wait" custom={dir}>
+              <motion.div
+                key={`step-${step}`}
+                custom={dir}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+              >
+                {step === 0 && <Step1 control={control} errors={errors} />}
+                {step === 1 && <Step2 control={control} errors={errors} />}
+                {step === 2 && <Step3 control={control} errors={errors} />}
+              </motion.div>
+            </AnimatePresence>
+
+            <div className="mt-8 flex items-center gap-3 border-t border-gray-100 dark:border-gray-800 pt-6">
+              {step > 0 && (
+                <Button type="button" intent="outline" className="flex-1 h-11 gap-2" onClick={handleBack}>
+                  <ChevronLeft className="h-4 w-4" />
+                  Kembali
+                </Button>
+              )}
+              {step < STEPS.length - 1 ? (
+                <Button type="button" intent="primary" className="flex-1 h-11 gap-2" onClick={handleNext}>
+                  Lanjut
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              ) : (
+                <div className="flex-1 space-y-2">
+                  <Button type="submit" intent="secondary" className="w-full h-11 gap-2" isLoading={isSubmitting}>
+                    <MessageCircle className="h-4 w-4 shrink-0" />
+                    Dapatkan Penawaran via WhatsApp
+                  </Button>
+                  <p className="text-center text-xs text-gray-400 dark:text-gray-500">
+                    Setelah klik, kamu akan diarahkan ke WhatsApp admin untuk konfirmasi.
+                  </p>
+                </div>
+              )}
+            </div>
+          </form>
+        </Card>
+
+        {/* Right: Sticky Summary */}
+        <div className="lg:sticky lg:top-24">
+          <SummaryCard values={estimatorValues} />
+        </div>
       </div>
     </Section>
   );
