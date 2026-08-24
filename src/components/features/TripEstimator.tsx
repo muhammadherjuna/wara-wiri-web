@@ -594,7 +594,16 @@ export function TripEstimator() {
             </motion.div>
           </AnimatePresence>
 
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form
+            onSubmit={(e) => {
+              if (step < STEPS.length - 1) {
+                e.preventDefault();
+                handleNext();
+              } else {
+                handleSubmit(onSubmit)(e);
+              }
+            }}
+          >
             <AnimatePresence mode="wait" custom={dir}>
               <motion.div
                 key={`step-${step}`}
