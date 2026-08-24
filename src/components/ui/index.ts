@@ -27,3 +27,6 @@ export type { ContainerProps } from "./Container";
 
 export { Section } from "./Section";
 export type { SectionProps } from "./Section";
+
+export { Modal } from "./Modal";
+export type { ModalProps } from "./Modal";

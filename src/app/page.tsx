@@ -3,6 +3,7 @@ import { Hero } from "@/components/sections/Hero";
 import { PopularPackages } from "@/components/sections/PopularPackages";
 import { WhyUs } from "@/components/sections/WhyUs";
 import { TripEstimator } from "@/components/features/TripEstimator";
+import { ItineraryPreview } from "@/components/sections/ItineraryPreview";
 
 export const metadata: Metadata = {
   title: "Wara Wiri — Trip Sekolah Nggak Pakai Ribet",
@@ -17,6 +18,7 @@ export default function HomePage() {
       <PopularPackages />
       <WhyUs />
       <TripEstimator />
+      <ItineraryPreview />
     </>
   );
 }
