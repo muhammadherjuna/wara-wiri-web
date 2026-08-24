@@ -51,7 +51,7 @@ export const GALLERY_ITEMS: GalleryItem[] = [
   },
   {
     id: "g7",
-    src: "https://images.unsplash.com/photo-1628105786016-56ff6df2c99a?q=80&w=1000&auto=format&fit=crop",
+    src: "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=1000&auto=format&fit=crop",
     alt: "Malioboro Yogyakarta",
     caption: "Berburu oleh-oleh di jalanan ikonik Malioboro",
     category: "budaya",
@@ -75,7 +75,7 @@ export const GALLERY_ITEMS: GalleryItem[] = [
   },
   {
     id: "g10",
-    src: "https://images.unsplash.com/photo-1544640578-8d0701198544?q=80&w=1000&auto=format&fit=crop",
+    src: "https://images.unsplash.com/photo-1519052537078-e6302a4968d4?q=80&w=1000&auto=format&fit=crop",
     alt: "Jeep Merapi",
     caption: "Serunya keliling sisa erupsi dengan Jeep Merapi Lava Tour",
     category: "alam",
