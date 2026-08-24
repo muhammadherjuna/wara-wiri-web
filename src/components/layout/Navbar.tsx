@@ -14,7 +14,7 @@ const navLinks = [
   { label: "Home",      href: "/" },
   { label: "Destinasi", href: "/destinasi" },
   { label: "Paket",     href: "/paket" },
-  { label: "Galeri",    href: "/galeri" },
+  { label: "Galeri",    href: "#galeri" },
   { label: "Kontak",    href: "/kontak" },
 ];
 

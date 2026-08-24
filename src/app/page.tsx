@@ -4,6 +4,7 @@ import { PopularPackages } from "@/components/sections/PopularPackages";
 import { WhyUs } from "@/components/sections/WhyUs";
 import { TripEstimator } from "@/components/features/TripEstimator";
 import { ItineraryPreview } from "@/components/sections/ItineraryPreview";
+import { GallerySection } from "@/components/sections/GallerySection";
 
 export const metadata: Metadata = {
   title: "Wara Wiri — Trip Sekolah Nggak Pakai Ribet",
@@ -19,6 +20,7 @@ export default function HomePage() {
       <WhyUs />
       <TripEstimator />
       <ItineraryPreview />
+      <GallerySection />
     </>
   );
 }
