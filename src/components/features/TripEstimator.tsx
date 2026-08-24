@@ -29,6 +29,7 @@ import {
   AlertCircle,
   Plus,
   Minus,
+  Info,
 } from "lucide-react";
 import { Section } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
@@ -172,57 +173,72 @@ const STEPS = ["Destinasi", "Peserta & Armada", "Kontak"];
 
 function ProgressBar({ currentStep }: { currentStep: number }) {
   return (
-    <div className="mb-8">
-      <div className="flex items-center justify-between relative">
-        {/* Connecting line */}
-        <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-0.5 bg-gray-200 dark:bg-gray-700 z-0" />
+    <div className="mb-8 select-none">
+      <div className="relative">
+        {/* Background track line - accurately centered at Y = 20px (middle of 40px circle) */}
+        <div className="absolute left-6 right-6 top-5 -translate-y-1/2 h-[2px] bg-gray-200 dark:bg-gray-700 z-0" />
+
+        {/* Active animated progress fill line */}
         <motion.div
-          className="absolute left-0 top-1/2 -translate-y-1/2 h-0.5 bg-primary-500 z-0 origin-left"
+          className="absolute left-6 top-5 -translate-y-1/2 h-[2px] bg-primary-600 z-0 origin-left"
           initial={{ scaleX: 0 }}
           animate={{ scaleX: currentStep / (STEPS.length - 1) }}
-          transition={{ duration: 0.4, ease: "easeInOut" }}
-          style={{ width: "100%" }}
+          transition={{ duration: 0.35, ease: "easeInOut" }}
+          style={{ width: "calc(100% - 48px)" }}
         />
 
-        {STEPS.map((label, i) => {
-          const done = i < currentStep;
-          const active = i === currentStep;
-          return (
-            <div key={label} className="relative z-10 flex flex-col items-center gap-2">
-              <motion.div
-                animate={{
-                  backgroundColor: done || active ? "#0066CC" : "#E5E7EB",
-                  scale: active ? 1.1 : 1,
-                }}
-                transition={{ duration: 0.25 }}
-                className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center shadow-md font-bold text-sm",
-                  done || active
-                    ? "text-white bg-primary-600 ring-4 ring-primary-100 dark:ring-primary-900/40"
-                    : "text-gray-400 bg-gray-200 dark:bg-dark-700"
-                )}
+        {/* Step circles & labels */}
+        <div className="relative z-10 flex items-start justify-between">
+          {STEPS.map((label, i) => {
+            const done = i < currentStep;
+            const active = i === currentStep;
+            return (
+              <div
+                key={label}
+                className="flex flex-col items-center"
+                style={{ width: "120px" }}
               >
-                {done ? (
-                  <Check className="h-5 w-5 text-white stroke-[2.5]" />
-                ) : (
-                  <span>{i + 1}</span>
-                )}
-              </motion.div>
-              <span
-                className={cn(
-                  "text-xs font-semibold hidden sm:block",
-                  active
-                    ? "text-primary-600 dark:text-primary-400"
-                    : done
-                    ? "text-dark-700 dark:text-light-200"
-                    : "text-gray-400 dark:text-gray-500"
-                )}
-              >
-                {label}
-              </span>
-            </div>
-          );
-        })}
+                {/* Circle with solid background to cleanly obscure the line underneath */}
+                <div className="bg-white dark:bg-dark-800 p-1 rounded-full">
+                  <motion.div
+                    animate={{
+                      scale: active ? 1.08 : 1,
+                    }}
+                    transition={{ duration: 0.2 }}
+                    className={cn(
+                      "w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-200",
+                      done
+                        ? "bg-primary-600 text-white shadow-sm"
+                        : active
+                        ? "bg-primary-600 text-white ring-4 ring-primary-100 dark:ring-primary-950/60 shadow-sm"
+                        : "bg-gray-100 dark:bg-dark-700 text-gray-400 dark:text-gray-500"
+                    )}
+                  >
+                    {done ? (
+                      <Check className="h-4 w-4 text-white stroke-[3]" />
+                    ) : (
+                      <span>{i + 1}</span>
+                    )}
+                  </motion.div>
+                </div>
+
+                {/* Step label */}
+                <span
+                  className={cn(
+                    "text-xs font-semibold mt-1.5 text-center transition-colors duration-200",
+                    active
+                      ? "text-primary-600 dark:text-primary-400"
+                      : done
+                      ? "text-dark-700 dark:text-light-200"
+                      : "text-gray-400 dark:text-gray-500"
+                  )}
+                >
+                  {label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -322,7 +338,7 @@ function NumberStepperInput({
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/^0+(?=\d)/, ""); // hapus leading zeros
+    const raw = e.target.value.replace(/^0+(?=\d)/, "");
     if (raw === "") {
       onChange(0);
       return;
@@ -364,6 +380,7 @@ function NumberStepperInput({
             type="button"
             onClick={handleDecrement}
             disabled={value <= min}
+            aria-label="Kurangi jumlah"
             className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-dark-600 text-dark-700 dark:text-light-200 hover:bg-gray-200 dark:hover:bg-dark-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             <Minus className="h-3.5 w-3.5" />
@@ -372,6 +389,7 @@ function NumberStepperInput({
             type="button"
             onClick={handleIncrement}
             disabled={value >= max}
+            aria-label="Tambah jumlah"
             className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-dark-600 text-dark-700 dark:text-light-200 hover:bg-gray-200 dark:hover:bg-dark-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -478,7 +496,12 @@ function Step1({
   return (
     <div className="space-y-6">
       <div>
-        <FieldLabel>🗺️ Pilih Destinasi Wisata</FieldLabel>
+        <FieldLabel>
+          <span className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-primary-500" />
+            Pilih Destinasi Wisata
+          </span>
+        </FieldLabel>
         <Controller
           name="destination"
           control={control}
@@ -495,7 +518,12 @@ function Step1({
       </div>
 
       <div>
-        <FieldLabel>📅 Durasi Perjalanan</FieldLabel>
+        <FieldLabel>
+          <span className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-primary-500" />
+            Durasi Perjalanan
+          </span>
+        </FieldLabel>
         <Controller
           name="duration"
           control={control}
@@ -553,8 +581,9 @@ function Step2({
             />
           )}
         />
-        <p className="mt-2 text-xs text-primary-600 dark:text-primary-400 font-medium flex items-center gap-1.5">
-          <span>💡</span> Bonus Khusus: Setiap 20 siswa, 1 guru pendamping GRATIS!
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 font-medium flex items-center gap-1.5">
+          <Info className="h-3.5 w-3.5 text-primary-500 shrink-0" />
+          Ketentuan Guru: Setiap kelipatan 20 siswa, 1 guru pendamping gratis.
         </p>
       </div>
 
@@ -696,7 +725,7 @@ function Step3({
             Penawaran Resmi via WhatsApp
           </p>
           <p className="text-xs text-primary-700/80 dark:text-primary-300/80 mt-1 leading-relaxed">
-            Data ini akan langsung kami buatkan draft penawaran resmi berstempel dan itinerary lengkap via WA. Gratis & tanpa komitmen!
+            Data ini akan langsung kami siapkan dalam bentuk dokumen penawaran resmi berstempel dan rincian itinerary lengkap via WhatsApp.
           </p>
         </div>
       </div>
@@ -734,7 +763,7 @@ function SummaryCard({ watchValues, estimate }: SummaryCardProps) {
           <h4 className="text-base font-bold">Ringkasan Estimasi Biaya</h4>
         </div>
         <p className="text-xs text-primary-200">
-          Kalkulasi real-time transparan sesuai pilihanmu
+          Kalkulasi real-time transparan sesuai pilihan perjalanan
         </p>
       </div>
 
@@ -995,30 +1024,30 @@ export function TripEstimator() {
     const payT = Math.max(0, data.teacherCount - quotaFree);
 
     const msg = [
-      `🌟 *PERMINTAAN ESTIMASI TRIP - WARA WIRI* 🌟`,
+      `*PERMINTAAN ESTIMASI TRIP - WARA WIRI*`,
       ``,
-      `📚 *Data Sekolah*`,
-      `Sekolah: ${data.schoolName}`,
-      `PIC: ${data.contactName}`,
-      `WA: ${data.whatsapp}`,
+      `*Data Sekolah*`,
+      `- Sekolah: ${data.schoolName}`,
+      `- PIC: ${data.contactName}`,
+      `- WhatsApp: ${data.whatsapp}`,
       ``,
-      `🗺️ *Detail Perjalanan*`,
-      `Destinasi: ${data.destination}`,
-      `Durasi: ${data.duration}`,
-      `Armada: ${BUS_LABELS[data.busType]}`,
+      `*Detail Perjalanan*`,
+      `- Destinasi: ${data.destination}`,
+      `- Durasi: ${data.duration}`,
+      `- Tipe Armada: ${BUS_LABELS[data.busType]}`,
       ``,
-      `👥 *Peserta*`,
-      `Siswa: ${data.studentCount} orang`,
-      `Guru: ${data.teacherCount} orang (${actualFree} gratis, ${payT} berbayar)`,
+      `*Rincian Peserta*`,
+      `- Siswa: ${data.studentCount} orang`,
+      `- Guru Pendamping: ${data.teacherCount} orang (${actualFree} gratis, ${payT} berbayar)`,
       ``,
-      `💰 *Estimasi Biaya*`,
-      `Harga/Siswa: ${formatRupiah(estimate.pricePerStudent)}`,
-      `Total Siswa: ${formatRupiah(estimate.totalStudentsPrice)}`,
-      `Total Guru: ${estimate.totalTeachersPrice === 0 ? "GRATIS" : formatRupiah(estimate.totalTeachersPrice)}`,
-      `*ESTIMASI TOTAL: ${formatRupiah(estimate.grandTotal)}*`,
-      `DP 30%: ${formatRupiah(estimate.grandTotal * 0.3)}`,
+      `*Estimasi Biaya*`,
+      `- Biaya per Siswa: ${formatRupiah(estimate.pricePerStudent)}`,
+      `- Total Biaya Siswa: ${formatRupiah(estimate.totalStudentsPrice)}`,
+      `- Total Biaya Guru: ${estimate.totalTeachersPrice === 0 ? "Gratis" : formatRupiah(estimate.totalTeachersPrice)}`,
+      `- Estimasi Total: ${formatRupiah(estimate.grandTotal)}`,
+      `- Estimasi DP (30%): ${formatRupiah(estimate.grandTotal * 0.3)}`,
       ``,
-      `Mohon kirimkan penawaran resmi & itinerary detail. Terima kasih! 🙏`,
+      `Mohon konfirmasi dan kirimkan dokumen penawaran resmi beserta itinerary lengkap. Terima kasih.`,
     ].join("\n");
 
     const encoded = encodeURIComponent(msg);
@@ -1060,7 +1089,7 @@ export function TripEstimator() {
     <Section
       id="estimator"
       heading="Estimasi Biaya Trip Sekolahmu"
-      description="Hitung kasar budget study tour kelasmu secara instan. Transparan dan anti ribet!"
+      description="Hitung perkiraan budget study tour sekolah secara instan, transparan, dan terstandarisasi."
       align="center"
       className="relative overflow-hidden scroll-mt-20 pt-20 md:pt-24 pb-20 bg-gradient-to-br from-primary-50 via-light-100 to-accent-50/30 dark:from-dark-900 dark:via-dark-900 dark:to-primary-950/40"
     >
@@ -1102,14 +1131,14 @@ export function TripEstimator() {
                     className="mb-6"
                   >
                     <h3 className="text-xl font-bold text-dark-800 dark:text-light-100">
-                      {step === 0 && "Step 1: Pilih Destinasi & Durasi"}
-                      {step === 1 && "Step 2: Jumlah Peserta & Armada"}
-                      {step === 2 && "Step 3: Data Kontak Sekolah"}
+                      {step === 0 && "Langkah 1: Destinasi & Durasi"}
+                      {step === 1 && "Langkah 2: Jumlah Peserta & Armada"}
+                      {step === 2 && "Langkah 3: Data Kontak Sekolah"}
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      {step === 0 && "Tentukan destinasi impian dan durasi perjalanan sekolahmu."}
-                      {step === 1 && "Berapa banyak siswa & guru yang ikut serta armada bus pilihanmu."}
-                      {step === 2 && "Siapa yang dapat kami hubungi untuk pengiriman penawaran resmi."}
+                      {step === 0 && "Tentukan destinasi dan durasi perjalanan sekolah."}
+                      {step === 1 && "Tentukan jumlah peserta serta armada bus yang diinginkan."}
+                      {step === 2 && "Isi kontak penanggung jawab untuk pengiriman penawaran resmi."}
                     </p>
                   </motion.div>
                 </AnimatePresence>

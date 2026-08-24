@@ -18,6 +18,7 @@ import {
   Wallet,
   MapPin,
   Star,
+  Sparkles,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -213,7 +214,8 @@ export function Hero() {
                 font-medium rounded-full shadow-lg
               "
             >
-              ✨ Spesialis Study Tour & Wisata Sekolah
+              <Sparkles className="h-3.5 w-3.5 text-accent-300 mr-1.5 shrink-0" />
+              <span>Spesialis Study Tour & Wisata Sekolah</span>
             </Badge>
           </motion.div>
 

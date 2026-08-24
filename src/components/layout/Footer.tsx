@@ -226,8 +226,8 @@ export function Footer() {
               <span className="text-gray-400 font-medium">Wara Wiri</span>. All
               rights reserved.
             </p>
-            <p className="text-xs text-gray-600">
-              Dibuat dengan ❤️ untuk pelajar Indonesia
+            <p className="text-xs text-gray-500">
+              Platform wisata edukasi terpercaya untuk pelajar Indonesia
             </p>
           </div>
         </div>
