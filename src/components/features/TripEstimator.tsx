@@ -524,7 +524,7 @@ export function TripEstimator() {
       contactName:  "",
       whatsapp:     "",
     },
-    mode: "onTouched",
+    mode: "onSubmit",
   });
 
   const watched = watch();
@@ -624,17 +624,17 @@ export function TripEstimator() {
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               ) : (
-                <div className="flex-1 space-y-2">
-                  <Button type="submit" intent="secondary" className="w-full h-11 gap-2" isLoading={isSubmitting}>
-                    <MessageCircle className="h-4 w-4 shrink-0" />
-                    Dapatkan Penawaran via WhatsApp
-                  </Button>
-                  <p className="text-center text-xs text-gray-400 dark:text-gray-500">
-                    Setelah klik, kamu akan diarahkan ke WhatsApp admin untuk konfirmasi.
-                  </p>
-                </div>
+                <Button type="submit" intent="secondary" className="flex-1 h-11 gap-2" isLoading={isSubmitting}>
+                  <MessageCircle className="h-4 w-4 shrink-0" />
+                  Dapatkan Penawaran via WA
+                </Button>
               )}
             </div>
+            {step === STEPS.length - 1 && (
+              <p className="mt-3 text-center text-xs text-gray-400 dark:text-gray-500">
+                Setelah klik, kamu akan diarahkan ke WhatsApp admin untuk konfirmasi.
+              </p>
+            )}
           </form>
         </Card>
 
