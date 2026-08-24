@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -78,8 +79,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ["var(--font-geist-sans)", "system-ui", "sans-serif"],
-        mono: ["var(--font-geist-mono)", "monospace"],
+        sans: ["var(--font-plus-jakarta-sans)", "system-ui", "sans-serif"],
+        mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       animation: {
         "fade-in": "fadeIn 0.5s ease-in-out",
