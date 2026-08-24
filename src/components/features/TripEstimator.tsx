@@ -300,7 +300,7 @@ function TextInput({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
-          className="flex-1 bg-transparent text-sm font-medium text-dark-800 dark:text-light-100 placeholder:text-gray-400 outline-none min-w-0"
+          className="flex-1 bg-transparent hover:bg-transparent focus:bg-transparent text-sm font-medium text-dark-800 dark:text-light-100 placeholder:text-gray-400 outline-none min-w-0"
         />
       </div>
       <FieldError message={error} />
@@ -356,7 +356,7 @@ function NumberInput({
           onChange={handleInputChange}
           onBlur={onBlur}
           placeholder={placeholder}
-          className="flex-1 bg-transparent text-sm font-semibold text-dark-800 dark:text-light-100 placeholder:text-gray-400 outline-none min-w-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          className="flex-1 bg-transparent hover:bg-transparent focus:bg-transparent text-sm font-semibold text-dark-800 dark:text-light-100 placeholder:text-gray-400 outline-none min-w-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
       </div>
       <FieldError message={error} />
@@ -422,9 +422,14 @@ function RadioCard({
                     </p>
                   )}
                 </div>
-                {selected && (
-                  <CheckCircle2 className="h-4 w-4 text-primary-600 dark:text-primary-400 shrink-0 mt-0.5" />
-                )}
+                <CheckCircle2
+                  className={cn(
+                    "h-4 w-4 shrink-0 mt-0.5 transition-opacity duration-150",
+                    selected
+                      ? "opacity-100 text-primary-600 dark:text-primary-400"
+                      : "opacity-0"
+                  )}
+                />
               </div>
             </motion.button>
           );
