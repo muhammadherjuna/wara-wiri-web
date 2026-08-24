@@ -101,12 +101,12 @@ const drawerVariants = {
   visible: {
     x: 0,
     opacity: 1,
-    transition: { type: "spring", stiffness: 300, damping: 30 },
+    transition: { type: "spring" as const, stiffness: 300, damping: 30 },
   },
   exit: {
     x: "100%",
     opacity: 0,
-    transition: { duration: 0.25, ease: "easeIn" },
+    transition: { duration: 0.25, ease: "easeIn" as const },
   },
 };
 
@@ -121,7 +121,7 @@ const linkStaggerVariants = {
   visible: (i: number) => ({
     opacity: 1,
     x: 0,
-    transition: { delay: i * 0.07, duration: 0.3, ease: "easeOut" },
+    transition: { delay: i * 0.07, duration: 0.3, ease: "easeOut" as const },
   }),
 };
 

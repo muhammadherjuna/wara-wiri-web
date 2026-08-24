@@ -27,6 +27,8 @@ import {
   MessageCircle,
   CheckCircle2,
   AlertCircle,
+  Plus,
+  Minus,
 } from "lucide-react";
 import { Section } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
@@ -78,7 +80,8 @@ interface EstimateInput {
 interface EstimateResult {
   pricePerStudent: number;
   totalStudentsPrice: number;
-  freeTeachers: number;
+  freeTeachersQuota: number;
+  actualFreeTeachers: number;
   payingTeachers: number;
   totalTeachersPrice: number;
   grandTotal: number;
@@ -92,8 +95,9 @@ function calculateEstimate(data: EstimateInput): EstimateResult {
   const pricePerStudent = basePrice * durationMult * busMult;
   const totalStudentsPrice = data.studentCount * pricePerStudent;
 
-  const freeTeachers = Math.floor(data.studentCount / 20);
-  const payingTeachers = Math.max(0, data.teacherCount - freeTeachers);
+  const freeTeachersQuota = Math.floor(data.studentCount / 20);
+  const actualFreeTeachers = Math.min(data.teacherCount, freeTeachersQuota);
+  const payingTeachers = Math.max(0, data.teacherCount - freeTeachersQuota);
   const totalTeachersPrice = payingTeachers * pricePerStudent;
 
   const grandTotal = totalStudentsPrice + totalTeachersPrice;
@@ -101,7 +105,8 @@ function calculateEstimate(data: EstimateInput): EstimateResult {
   return {
     pricePerStudent,
     totalStudentsPrice,
-    freeTeachers,
+    freeTeachersQuota,
+    actualFreeTeachers,
     payingTeachers,
     totalTeachersPrice,
     grandTotal,
@@ -117,14 +122,14 @@ const step1Schema = z.object({
 
 const step2Schema = z.object({
   studentCount: z
-    .number({ invalid_type_error: "Harus berupa angka" })
+    .number({ message: "Harus berupa angka" })
     .min(20, "Minimum 20 siswa")
-    .max(500, "Maximum 500 siswa"),
+    .max(500, "Maksimum 500 siswa"),
   busType: z.string().min(1, "Pilih tipe bus"),
   teacherCount: z
-    .number({ invalid_type_error: "Harus berupa angka" })
+    .number({ message: "Harus berupa angka" })
     .min(1, "Minimum 1 guru")
-    .max(50, "Maximum 50 guru"),
+    .max(50, "Maksimum 50 guru"),
 });
 
 const step3Schema = z.object({
@@ -146,9 +151,7 @@ type FormData = z.infer<typeof fullSchema>;
 function AnimatedNumber({ value }: { value: number }) {
   const motionVal = useMotionValue(value);
   const spring = useSpring(motionVal, { stiffness: 80, damping: 18 });
-  const display = useTransform(spring, (v) =>
-    formatRupiah(Math.round(v))
-  );
+  const display = useTransform(spring, (v) => formatRupiah(Math.round(v)));
   const [text, setText] = React.useState(formatRupiah(value));
 
   useEffect(() => {
@@ -165,7 +168,7 @@ function AnimatedNumber({ value }: { value: number }) {
 
 // ─── Progress Bar ─────────────────────────────────────────────────────────────
 
-const STEPS = ["Destinasi", "Peserta", "Kontak"];
+const STEPS = ["Destinasi", "Peserta & Armada", "Kontak"];
 
 function ProgressBar({ currentStep }: { currentStep: number }) {
   return (
@@ -189,32 +192,30 @@ function ProgressBar({ currentStep }: { currentStep: number }) {
               <motion.div
                 animate={{
                   backgroundColor: done || active ? "#0066CC" : "#E5E7EB",
-                  scale: active ? 1.15 : 1,
+                  scale: active ? 1.1 : 1,
                 }}
                 transition={{ duration: 0.25 }}
-                className="w-9 h-9 rounded-full flex items-center justify-center shadow-sm"
+                className={cn(
+                  "w-10 h-10 rounded-full flex items-center justify-center shadow-md font-bold text-sm",
+                  done || active
+                    ? "text-white bg-primary-600 ring-4 ring-primary-100 dark:ring-primary-900/40"
+                    : "text-gray-400 bg-gray-200 dark:bg-dark-700"
+                )}
               >
                 {done ? (
-                  <Check className="h-4 w-4 text-white" />
+                  <Check className="h-5 w-5 text-white stroke-[2.5]" />
                 ) : (
-                  <span
-                    className={cn(
-                      "text-sm font-bold",
-                      active ? "text-white" : "text-gray-400"
-                    )}
-                  >
-                    {i + 1}
-                  </span>
+                  <span>{i + 1}</span>
                 )}
               </motion.div>
               <span
                 className={cn(
-                  "text-xs font-medium hidden sm:block",
+                  "text-xs font-semibold hidden sm:block",
                   active
                     ? "text-primary-600 dark:text-primary-400"
                     : done
-                    ? "text-gray-500"
-                    : "text-gray-400"
+                    ? "text-dark-700 dark:text-light-200"
+                    : "text-gray-400 dark:text-gray-500"
                 )}
               >
                 {label}
@@ -227,11 +228,11 @@ function ProgressBar({ currentStep }: { currentStep: number }) {
   );
 }
 
-// ─── Form Field Wrapper ───────────────────────────────────────────────────────
+// ─── Form Field Helpers ───────────────────────────────────────────────────────
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-sm font-semibold text-dark-700 dark:text-light-200 mb-2">
+    <label className="block text-sm font-semibold text-dark-800 dark:text-light-100 mb-2">
       {children}
     </label>
   );
@@ -240,62 +241,142 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-500">
+    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-500 font-medium">
       <AlertCircle className="h-3.5 w-3.5 shrink-0" />
       {message}
     </p>
   );
 }
 
+// ─── Text Input ───────────────────────────────────────────────────────────────
+
 function TextInput({
-  type = "text",
   placeholder,
   value,
   onChange,
   onBlur,
   error,
   icon: Icon,
-  prefix,
+  type = "text",
 }: {
-  type?: string;
   placeholder?: string;
-  value: string | number;
-  onChange: (v: string | number) => void;
+  value: string;
+  onChange: (v: string) => void;
   onBlur?: () => void;
   error?: string;
   icon?: React.ElementType;
-  prefix?: string;
+  type?: string;
 }) {
   return (
     <div>
       <div
         className={cn(
-          "flex items-center gap-3 rounded-xl border px-4 py-3",
-          "bg-white dark:bg-dark-700",
-          "transition-colors duration-200",
+          "flex items-center gap-3 rounded-xl border px-4 py-3 bg-white dark:bg-dark-700 transition-all duration-200 shadow-sm",
           error
-            ? "border-red-400 focus-within:ring-2 focus-within:ring-red-300"
-            : "border-gray-200 dark:border-gray-700 focus-within:border-primary-400 focus-within:ring-2 focus-within:ring-primary-100 dark:focus-within:ring-primary-900/30"
+            ? "border-red-400 ring-2 ring-red-100 dark:ring-red-950/40"
+            : "border-gray-200 dark:border-gray-700 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-100 dark:focus-within:ring-primary-900/30"
         )}
       >
         {Icon && (
-          <Icon className="h-4 w-4 text-gray-400 dark:text-gray-500 shrink-0" />
-        )}
-        {prefix && (
-          <span className="text-sm text-gray-400 font-medium shrink-0">
-            {prefix}
-          </span>
+          <Icon className="h-5 w-5 text-gray-400 dark:text-gray-500 shrink-0" />
         )}
         <input
           type={type}
           placeholder={placeholder}
           value={value}
-          onChange={(e) =>
-            onChange(type === "number" ? Number(e.target.value) : e.target.value)
-          }
+          onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
-          className="flex-1 bg-transparent text-sm text-dark-800 dark:text-light-100 placeholder:text-gray-400 outline-none min-w-0"
+          className="flex-1 bg-transparent text-sm font-medium text-dark-800 dark:text-light-100 placeholder:text-gray-400 outline-none min-w-0"
         />
+      </div>
+      <FieldError message={error} />
+    </div>
+  );
+}
+
+// ─── Number Stepper Input ─────────────────────────────────────────────────────
+
+function NumberStepperInput({
+  value,
+  onChange,
+  min = 1,
+  max = 500,
+  step = 1,
+  error,
+  icon: Icon,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  error?: string;
+  icon?: React.ElementType;
+}) {
+  const handleDecrement = () => {
+    onChange(Math.max(min, (Number(value) || min) - step));
+  };
+
+  const handleIncrement = () => {
+    onChange(Math.min(max, (Number(value) || min) + step));
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/^0+(?=\d)/, ""); // hapus leading zeros
+    if (raw === "") {
+      onChange(0);
+      return;
+    }
+    const parsed = parseInt(raw, 10);
+    if (!isNaN(parsed)) {
+      onChange(parsed);
+    }
+  };
+
+  return (
+    <div>
+      <div
+        className={cn(
+          "flex items-center rounded-xl border bg-white dark:bg-dark-700 shadow-sm transition-all duration-200 overflow-hidden",
+          error
+            ? "border-red-400 ring-2 ring-red-100 dark:ring-red-950/40"
+            : "border-gray-200 dark:border-gray-700 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-100 dark:focus-within:ring-primary-900/30"
+        )}
+      >
+        {Icon && (
+          <div className="pl-4 pr-1 text-gray-400 dark:text-gray-500">
+            <Icon className="h-5 w-5" />
+          </div>
+        )}
+
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={value === 0 ? "" : value}
+          onChange={handleInputChange}
+          placeholder="0"
+          className="flex-1 bg-transparent px-3 py-3 text-sm font-bold text-dark-800 dark:text-light-100 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        />
+
+        <div className="flex items-center pr-2 gap-1">
+          <button
+            type="button"
+            onClick={handleDecrement}
+            disabled={value <= min}
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-dark-600 text-dark-700 dark:text-light-200 hover:bg-gray-200 dark:hover:bg-dark-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <Minus className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleIncrement}
+            disabled={value >= max}
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-dark-600 text-dark-700 dark:text-light-200 hover:bg-gray-200 dark:hover:bg-dark-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
       <FieldError message={error} />
     </div>
@@ -323,7 +404,7 @@ function RadioCard({
         className={cn(
           "grid gap-3",
           columns === 2 && "grid-cols-2",
-          columns === 3 && "grid-cols-3",
+          columns === 3 && "grid-cols-1 sm:grid-cols-3",
           columns === 4 && "grid-cols-2 sm:grid-cols-4"
         )}
       >
@@ -333,12 +414,12 @@ function RadioCard({
             <motion.button
               key={opt.value}
               type="button"
-              whileTap={{ scale: 0.97 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => onChange(opt.value)}
               className={cn(
-                "relative rounded-xl border-2 px-3 py-3 text-left transition-all duration-200",
+                "relative rounded-xl border-2 p-3 text-left transition-all duration-200",
                 selected
-                  ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
+                  ? "border-primary-500 bg-primary-50/80 dark:bg-primary-900/30 shadow-sm"
                   : "border-gray-200 dark:border-gray-700 hover:border-primary-300 bg-white dark:bg-dark-700"
               )}
             >
@@ -346,7 +427,7 @@ function RadioCard({
                 <div>
                   <p
                     className={cn(
-                      "text-sm font-semibold leading-tight",
+                      "text-sm font-semibold leading-snug",
                       selected
                         ? "text-primary-700 dark:text-primary-300"
                         : "text-dark-700 dark:text-light-200"
@@ -355,11 +436,13 @@ function RadioCard({
                     {opt.label}
                   </p>
                   {opt.sub && (
-                    <p className="text-xs text-gray-400 mt-0.5">{opt.sub}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      {opt.sub}
+                    </p>
                   )}
                 </div>
                 {selected && (
-                  <CheckCircle2 className="h-4 w-4 text-primary-500 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="h-4 w-4 text-primary-600 dark:text-primary-400 shrink-0 mt-0.5" />
                 )}
               </div>
             </motion.button>
@@ -389,13 +472,13 @@ function Step1({
   const durationOptions = Object.keys(DURATION_MULT).map((d) => ({
     value: d,
     label: d,
-    sub: `×${DURATION_MULT[d].toFixed(1)} harga`,
+    sub: `×${DURATION_MULT[d].toFixed(1)} paket`,
   }));
 
   return (
     <div className="space-y-6">
       <div>
-        <FieldLabel>🗺️ Pilih Destinasi</FieldLabel>
+        <FieldLabel>🗺️ Pilih Destinasi Wisata</FieldLabel>
         <Controller
           name="destination"
           control={control}
@@ -443,7 +526,7 @@ function Step2({
   const busOptions = Object.entries(BUS_LABELS).map(([value, label]) => ({
     value,
     label,
-    sub: `×${BUS_MULT[value].toFixed(1)} harga`,
+    sub: `×${BUS_MULT[value].toFixed(1)} armada`,
   }));
 
   return (
@@ -451,7 +534,7 @@ function Step2({
       <div>
         <FieldLabel>
           <span className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
+            <Users className="h-4 w-4 text-primary-500" />
             Jumlah Siswa
           </span>
         </FieldLabel>
@@ -459,26 +542,26 @@ function Step2({
           name="studentCount"
           control={control}
           render={({ field }) => (
-            <TextInput
-              type="number"
-              placeholder="Contoh: 60"
-              value={field.value ?? ""}
-              onChange={(v) => field.onChange(Number(v))}
-              onBlur={field.onBlur}
+            <NumberStepperInput
+              value={field.value ?? 0}
+              onChange={field.onChange}
+              min={20}
+              max={500}
+              step={10}
               error={errors.studentCount?.message}
               icon={Users}
             />
           )}
         />
-        <p className="mt-1.5 text-xs text-gray-400">
-          💡 Setiap 20 siswa, 1 guru gratis!
+        <p className="mt-2 text-xs text-primary-600 dark:text-primary-400 font-medium flex items-center gap-1.5">
+          <span>💡</span> Bonus Khusus: Setiap 20 siswa, 1 guru pendamping GRATIS!
         </p>
       </div>
 
       <div>
         <FieldLabel>
           <span className="flex items-center gap-2">
-            <Bus className="h-4 w-4" />
+            <Bus className="h-4 w-4 text-primary-500" />
             Tipe Armada Bus
           </span>
         </FieldLabel>
@@ -500,7 +583,7 @@ function Step2({
       <div>
         <FieldLabel>
           <span className="flex items-center gap-2">
-            <User className="h-4 w-4" />
+            <User className="h-4 w-4 text-primary-500" />
             Jumlah Guru / Pendamping
           </span>
         </FieldLabel>
@@ -508,12 +591,12 @@ function Step2({
           name="teacherCount"
           control={control}
           render={({ field }) => (
-            <TextInput
-              type="number"
-              placeholder="Contoh: 4"
-              value={field.value ?? ""}
-              onChange={(v) => field.onChange(Number(v))}
-              onBlur={field.onBlur}
+            <NumberStepperInput
+              value={field.value ?? 0}
+              onChange={field.onChange}
+              min={1}
+              max={50}
+              step={1}
               error={errors.teacherCount?.message}
               icon={User}
             />
@@ -538,7 +621,7 @@ function Step3({
       <div>
         <FieldLabel>
           <span className="flex items-center gap-2">
-            <School className="h-4 w-4" />
+            <School className="h-4 w-4 text-primary-500" />
             Nama Sekolah
           </span>
         </FieldLabel>
@@ -547,7 +630,7 @@ function Step3({
           control={control}
           render={({ field }) => (
             <TextInput
-              placeholder="Contoh: SMA N 1 Kebumen"
+              placeholder="Contoh: SMA Negeri 1 Kebumen"
               value={field.value ?? ""}
               onChange={field.onChange}
               onBlur={field.onBlur}
@@ -561,8 +644,8 @@ function Step3({
       <div>
         <FieldLabel>
           <span className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Nama Penanggung Jawab
+            <User className="h-4 w-4 text-primary-500" />
+            Nama PIC / Penanggung Jawab
           </span>
         </FieldLabel>
         <Controller
@@ -570,7 +653,7 @@ function Step3({
           control={control}
           render={({ field }) => (
             <TextInput
-              placeholder="Contoh: Budi (Ketua OSIS)"
+              placeholder="Contoh: Budi Prasetyo (Ketua OSIS)"
               value={field.value ?? ""}
               onChange={field.onChange}
               onBlur={field.onBlur}
@@ -584,7 +667,7 @@ function Step3({
       <div>
         <FieldLabel>
           <span className="flex items-center gap-2">
-            <Phone className="h-4 w-4" />
+            <Phone className="h-4 w-4 text-primary-500" />
             Nomor WhatsApp
           </span>
         </FieldLabel>
@@ -605,16 +688,15 @@ function Step3({
         />
       </div>
 
-      {/* Privacy note */}
+      {/* WhatsApp Note */}
       <div className="rounded-xl bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-800 p-4 flex gap-3">
-        <MessageCircle className="h-5 w-5 text-primary-500 shrink-0 mt-0.5" />
+        <MessageCircle className="h-5 w-5 text-primary-600 dark:text-primary-400 shrink-0 mt-0.5" />
         <div>
-          <p className="text-sm font-semibold text-primary-700 dark:text-primary-300">
-            Penawaran via WhatsApp
+          <p className="text-sm font-bold text-primary-800 dark:text-primary-200">
+            Penawaran Resmi via WhatsApp
           </p>
-          <p className="text-xs text-primary-600/70 dark:text-primary-400/70 mt-0.5">
-            Tim kami akan menyiapkan penawaran resmi dan itinerary detail
-            sesuai kebutuhan sekolahmu. Gratis & tanpa kewajiban!
+          <p className="text-xs text-primary-700/80 dark:text-primary-300/80 mt-1 leading-relaxed">
+            Data ini akan langsung kami buatkan draft penawaran resmi berstempel dan itinerary lengkap via WA. Gratis & tanpa komitmen!
           </p>
         </div>
       </div>
@@ -631,6 +713,8 @@ interface SummaryCardProps {
 
 function SummaryCard({ watchValues, estimate }: SummaryCardProps) {
   const hasDestination = !!watchValues.destination;
+  const studentCount = watchValues.studentCount ?? 0;
+  const teacherCount = watchValues.teacherCount ?? 0;
 
   return (
     <div
@@ -644,13 +728,13 @@ function SummaryCard({ watchValues, estimate }: SummaryCardProps) {
       )}
     >
       {/* Header */}
-      <div className="bg-gradient-to-br from-primary-600 to-primary-800 px-6 py-5">
+      <div className="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 px-6 py-5 text-white">
         <div className="flex items-center gap-2 mb-1">
-          <Calculator className="h-5 w-5 text-primary-200" />
-          <p className="text-sm font-semibold text-primary-100">Estimasi Harga</p>
+          <Calculator className="h-5 w-5 text-accent-300" />
+          <h4 className="text-base font-bold">Ringkasan Estimasi Biaya</h4>
         </div>
-        <p className="text-xs text-primary-300">
-          Harga perkiraan, dapat berubah sesuai negosiasi
+        <p className="text-xs text-primary-200">
+          Kalkulasi real-time transparan sesuai pilihanmu
         </p>
       </div>
 
@@ -659,63 +743,75 @@ function SummaryCard({ watchValues, estimate }: SummaryCardProps) {
         <div className="space-y-3">
           <div className="flex items-center justify-between text-sm">
             <span className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-              <MapPin className="h-3.5 w-3.5" />
+              <MapPin className="h-4 w-4 text-primary-500" />
               Destinasi
             </span>
-            <span className="font-semibold text-dark-700 dark:text-light-200">
+            <span className="font-bold text-dark-800 dark:text-light-100">
               {watchValues.destination || "—"}
             </span>
           </div>
 
           <div className="flex items-center justify-between text-sm">
             <span className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-              <CalendarDays className="h-3.5 w-3.5" />
+              <CalendarDays className="h-4 w-4 text-primary-500" />
               Durasi
             </span>
-            <span className="font-semibold text-dark-700 dark:text-light-200">
+            <span className="font-bold text-dark-800 dark:text-light-100">
               {watchValues.duration || "—"}
             </span>
           </div>
 
           <div className="flex items-center justify-between text-sm">
             <span className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-              <Bus className="h-3.5 w-3.5" />
+              <Bus className="h-4 w-4 text-primary-500" />
               Armada
             </span>
-            <span className="font-semibold text-dark-700 dark:text-light-200">
-              {watchValues.busType ? BUS_LABELS[watchValues.busType] || watchValues.busType : "—"}
+            <span className="font-bold text-dark-800 dark:text-light-100 text-right">
+              {watchValues.busType
+                ? BUS_LABELS[watchValues.busType] || watchValues.busType
+                : "—"}
             </span>
           </div>
         </div>
 
         {/* Breakdown */}
-        {hasDestination && (watchValues.studentCount ?? 0) >= 20 && (
-          <div className="space-y-2 border-t border-gray-100 dark:border-gray-800 pt-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        {hasDestination && studentCount >= 20 && (
+          <div className="space-y-2.5 border-t border-gray-100 dark:border-gray-800 pt-4">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">
               Rincian Peserta
             </p>
 
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500 dark:text-gray-400">
-                Siswa ({watchValues.studentCount ?? 0} orang)
+              <span className="text-gray-600 dark:text-gray-300">
+                Siswa ({studentCount} orang)
               </span>
-              <span className="font-medium text-dark-700 dark:text-light-200">
+              <span className="font-semibold text-dark-800 dark:text-light-100">
                 {formatRupiah(estimate.totalStudentsPrice)}
               </span>
             </div>
 
-            {(watchValues.teacherCount ?? 0) > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500 dark:text-gray-400">
-                  Guru ({watchValues.teacherCount} orang
-                  {estimate.freeTeachers > 0 && (
-                    <span className="text-emerald-500 font-medium">
-                      , {estimate.freeTeachers} gratis
+            {teacherCount > 0 && (
+              <div className="flex justify-between text-sm items-center">
+                <div className="flex flex-col">
+                  <span className="text-gray-600 dark:text-gray-300">
+                    Guru ({teacherCount} orang)
+                  </span>
+                  {estimate.actualFreeTeachers > 0 && (
+                    <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                      {estimate.actualFreeTeachers === teacherCount
+                        ? `(Semua ${teacherCount} guru gratis)`
+                        : `(${estimate.actualFreeTeachers} gratis, ${estimate.payingTeachers} bayar)`}
                     </span>
                   )}
-                  )
-                </span>
-                <span className="font-medium text-dark-700 dark:text-light-200">
+                </div>
+                <span
+                  className={cn(
+                    "font-bold",
+                    estimate.totalTeachersPrice === 0
+                      ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded text-xs"
+                      : "text-dark-800 dark:text-light-100"
+                  )}
+                >
                   {estimate.totalTeachersPrice === 0
                     ? "GRATIS"
                     : formatRupiah(estimate.totalTeachersPrice)}
@@ -723,34 +819,36 @@ function SummaryCard({ watchValues, estimate }: SummaryCardProps) {
               </div>
             )}
 
-            <div className="flex justify-between text-xs text-gray-400 pt-1">
-              <span>Harga per siswa</span>
-              <span>{formatRupiah(estimate.pricePerStudent)}</span>
+            <div className="flex justify-between text-xs text-gray-400 pt-1 border-t border-dashed border-gray-100 dark:border-gray-800">
+              <span>Biaya per siswa</span>
+              <span className="font-semibold">{formatRupiah(estimate.pricePerStudent)}</span>
             </div>
           </div>
         )}
 
         {/* Grand Total */}
-        <div className="rounded-xl bg-gradient-to-br from-primary-50 to-primary-100/50 dark:from-primary-900/30 dark:to-primary-900/10 border border-primary-100 dark:border-primary-800 p-4">
-          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Estimasi Total</p>
-          <p className="text-2xl font-extrabold text-primary-700 dark:text-primary-400 leading-none">
-            {hasDestination && (watchValues.studentCount ?? 0) >= 20 ? (
+        <div className="rounded-xl bg-gradient-to-br from-primary-50 to-primary-100/50 dark:from-primary-900/30 dark:to-primary-900/10 border border-primary-200 dark:border-primary-800 p-4">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+            Estimasi Total Budget
+          </p>
+          <div className="text-2xl font-black text-primary-700 dark:text-primary-300">
+            {hasDestination && studentCount >= 20 ? (
               <AnimatedNumber value={estimate.grandTotal} />
             ) : (
               "—"
             )}
-          </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-            Belum termasuk biaya masuk objek wisata
+          </div>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
+            *Belum termasuk tiket wahana opsional
           </p>
         </div>
 
         {/* DP info */}
-        {hasDestination && (watchValues.studentCount ?? 0) >= 20 && (
-          <div className="text-center">
-            <p className="text-xs text-gray-400">
-              DP 30% ={" "}
-              <span className="font-semibold text-secondary-500">
+        {hasDestination && studentCount >= 20 && (
+          <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 px-3 py-2 text-center">
+            <p className="text-xs text-amber-800 dark:text-amber-300">
+              Estimasi DP 30%:{" "}
+              <span className="font-bold">
                 {formatRupiah(estimate.grandTotal * 0.3)}
               </span>
             </p>
@@ -758,10 +856,10 @@ function SummaryCard({ watchValues, estimate }: SummaryCardProps) {
         )}
 
         {!hasDestination && (
-          <div className="text-center py-4">
-            <Sparkles className="h-8 w-8 text-gray-200 dark:text-gray-700 mx-auto mb-2" />
+          <div className="text-center py-6">
+            <Sparkles className="h-8 w-8 text-primary-400/50 mx-auto mb-2" />
             <p className="text-sm text-gray-400">
-              Isi form di samping untuk melihat estimasi harga
+              Pilih destinasi di form untuk melihat kalkulasi harga otomatis
             </p>
           </div>
         )}
@@ -792,40 +890,39 @@ function SuccessScreen({
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
-        className="w-20 h-20 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center"
+        className="w-20 h-20 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center ring-8 ring-emerald-50 dark:ring-emerald-950/30"
       >
         <CheckCircle2 className="h-10 w-10 text-emerald-500" />
       </motion.div>
 
       <div>
-        <h3 className="text-xl font-bold text-dark-800 dark:text-light-100">
-          Estimasi Dikirim!
+        <h3 className="text-2xl font-extrabold text-dark-800 dark:text-light-100">
+          Estimasi Berhasil Terkirim!
         </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-xs mx-auto">
-          Tim Wara Wiri akan menghubungi {data.contactName} di WA{" "}
-          {data.whatsapp} dalam 1×24 jam.
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 max-w-sm mx-auto leading-relaxed">
+          Tim Wara Wiri akan segera menghubungi PIC <span className="font-semibold text-dark-800 dark:text-light-100">{data.contactName}</span> ({data.schoolName}) di WhatsApp <span className="font-semibold text-primary-600">{data.whatsapp}</span>.
         </p>
       </div>
 
-      <div className="bg-gray-50 dark:bg-dark-700 rounded-xl p-4 w-full text-sm space-y-2">
+      <div className="bg-gray-50 dark:bg-dark-700/60 border border-gray-100 dark:border-gray-700 rounded-xl p-5 w-full text-sm space-y-3">
         <div className="flex justify-between">
-          <span className="text-gray-400">Destinasi</span>
-          <span className="font-semibold">{data.destination}</span>
+          <span className="text-gray-400">Destinasi & Durasi</span>
+          <span className="font-bold">{data.destination} ({data.duration})</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-gray-400">Peserta</span>
-          <span className="font-semibold">{data.studentCount} siswa + {data.teacherCount} guru</span>
+          <span className="text-gray-400">Total Peserta</span>
+          <span className="font-bold">{data.studentCount} Siswa + {data.teacherCount} Guru</span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-gray-400">Estimasi Total</span>
-          <span className="font-extrabold text-primary-600 dark:text-primary-400">
+        <div className="flex justify-between border-t border-gray-200 dark:border-gray-600 pt-2">
+          <span className="text-gray-500 font-medium">Estimasi Grand Total</span>
+          <span className="font-black text-lg text-primary-600 dark:text-primary-400">
             {formatRupiah(estimate.grandTotal)}
           </span>
         </div>
       </div>
 
-      <Button intent="outline" onClick={onReset} className="w-full">
-        Hitung Estimasi Lain
+      <Button intent="outline" size="lg" onClick={onReset} className="w-full">
+        Hitung Estimasi Paket Lain
       </Button>
     </motion.div>
   );
@@ -835,7 +932,7 @@ function SuccessScreen({
 
 export function TripEstimator() {
   const [step, setStep] = useState(0);
-  const [direction, setDirection] = useState(1); // 1=forward, -1=backward
+  const [direction, setDirection] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [submittedData, setSubmittedData] = useState<FormData | null>(null);
 
@@ -850,7 +947,7 @@ export function TripEstimator() {
     resolver: zodResolver(fullSchema),
     mode: "onChange",
     defaultValues: {
-      destination: "",
+      destination: "Bali",
       duration: "3D2N",
       studentCount: 40,
       busType: "Standard",
@@ -864,14 +961,13 @@ export function TripEstimator() {
   const watchValues = watch();
 
   const estimate = calculateEstimate({
-    destination: watchValues.destination ?? "",
+    destination: watchValues.destination ?? "Bali",
     duration: watchValues.duration ?? "3D2N",
-    studentCount: watchValues.studentCount ?? 0,
+    studentCount: watchValues.studentCount ?? 40,
     busType: watchValues.busType ?? "Standard",
-    teacherCount: watchValues.teacherCount ?? 0,
+    teacherCount: watchValues.teacherCount ?? 2,
   });
 
-  // Step validation fields
   const stepFields: (keyof FormData)[][] = [
     ["destination", "duration"],
     ["studentCount", "busType", "teacherCount"],
@@ -894,9 +990,10 @@ export function TripEstimator() {
   const onSubmit = (data: FormData) => {
     setSubmittedData(data);
 
-    // Build WhatsApp message
-    const freeT = Math.floor(data.studentCount / 20);
-    const payT = Math.max(0, data.teacherCount - freeT);
+    const quotaFree = Math.floor(data.studentCount / 20);
+    const actualFree = Math.min(data.teacherCount, quotaFree);
+    const payT = Math.max(0, data.teacherCount - quotaFree);
+
     const msg = [
       `🌟 *PERMINTAAN ESTIMASI TRIP - WARA WIRI* 🌟`,
       ``,
@@ -912,7 +1009,7 @@ export function TripEstimator() {
       ``,
       `👥 *Peserta*`,
       `Siswa: ${data.studentCount} orang`,
-      `Guru: ${data.teacherCount} orang (${freeT} gratis, ${payT} berbayar)`,
+      `Guru: ${data.teacherCount} orang (${actualFree} gratis, ${payT} berbayar)`,
       ``,
       `💰 *Estimasi Biaya*`,
       `Harga/Siswa: ${formatRupiah(estimate.pricePerStudent)}`,
@@ -931,22 +1028,30 @@ export function TripEstimator() {
   };
 
   const handleReset = () => {
-    reset();
+    reset({
+      destination: "Bali",
+      duration: "3D2N",
+      studentCount: 40,
+      busType: "Standard",
+      teacherCount: 2,
+      schoolName: "",
+      contactName: "",
+      whatsapp: "",
+    });
     setStep(0);
     setSubmitted(false);
     setSubmittedData(null);
     setDirection(1);
   };
 
-  // Slide animation variants
   const slideVariants = {
     enter: (dir: number) => ({
-      x: dir > 0 ? 60 : -60,
+      x: dir > 0 ? 40 : -40,
       opacity: 0,
     }),
     center: { x: 0, opacity: 1 },
     exit: (dir: number) => ({
-      x: dir > 0 ? -60 : 60,
+      x: dir > 0 ? -40 : 40,
       opacity: 0,
     }),
   };
@@ -957,7 +1062,7 @@ export function TripEstimator() {
       heading="Estimasi Biaya Trip Sekolahmu"
       description="Hitung kasar budget study tour kelasmu secara instan. Transparan dan anti ribet!"
       align="center"
-      className="relative overflow-hidden bg-gradient-to-br from-primary-50 via-light-100 to-accent-50/30 dark:from-dark-900 dark:via-dark-900 dark:to-primary-950/40"
+      className="relative overflow-hidden scroll-mt-20 pt-20 md:pt-24 pb-20 bg-gradient-to-br from-primary-50 via-light-100 to-accent-50/30 dark:from-dark-900 dark:via-dark-900 dark:to-primary-950/40"
     >
       {/* Decorative dot grid */}
       <div
@@ -993,18 +1098,18 @@ export function TripEstimator() {
                     initial="enter"
                     animate="center"
                     exit="exit"
-                    transition={{ duration: 0.28, ease: "easeInOut" }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
                     className="mb-6"
                   >
-                    <h3 className="text-lg font-bold text-dark-800 dark:text-light-100">
+                    <h3 className="text-xl font-bold text-dark-800 dark:text-light-100">
                       {step === 0 && "Step 1: Pilih Destinasi & Durasi"}
                       {step === 1 && "Step 2: Jumlah Peserta & Armada"}
                       {step === 2 && "Step 3: Data Kontak Sekolah"}
                     </h3>
-                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
-                      {step === 0 && "Ke mana tujuan dan berapa lama tripnya?"}
-                      {step === 1 && "Berapa peserta dan bus seperti apa yang diinginkan?"}
-                      {step === 2 && "Siapa yang bisa kami hubungi untuk penawaran resmi?"}
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      {step === 0 && "Tentukan destinasi impian dan durasi perjalanan sekolahmu."}
+                      {step === 1 && "Berapa banyak siswa & guru yang ikut serta armada bus pilihanmu."}
+                      {step === 2 && "Siapa yang dapat kami hubungi untuk pengiriman penawaran resmi."}
                     </p>
                   </motion.div>
                 </AnimatePresence>
@@ -1019,31 +1124,26 @@ export function TripEstimator() {
                       initial="enter"
                       animate="center"
                       exit="exit"
-                      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                      transition={{ duration: 0.28, ease: "easeInOut" }}
                     >
-                      {step === 0 && (
-                        <Step1 control={control} errors={errors} />
-                      )}
-                      {step === 1 && (
-                        <Step2 control={control} errors={errors} />
-                      )}
-                      {step === 2 && (
-                        <Step3 control={control} errors={errors} />
-                      )}
+                      {step === 0 && <Step1 control={control} errors={errors} />}
+                      {step === 1 && <Step2 control={control} errors={errors} />}
+                      {step === 2 && <Step3 control={control} errors={errors} />}
                     </motion.div>
                   </AnimatePresence>
 
                   {/* Navigation Buttons */}
-                  <div className="flex gap-3 mt-8">
+                  <div className="flex items-center gap-3 sm:gap-4 mt-8 pt-5 border-t border-gray-100 dark:border-gray-800">
                     {step > 0 && (
                       <Button
                         type="button"
-                        intent="ghost"
+                        intent="outline"
+                        size="lg"
                         className="flex-1"
                         onClick={handleBack}
                       >
-                        <ChevronLeft className="h-4 w-4" />
-                        Kembali
+                        <ChevronLeft className="h-5 w-5" />
+                        <span>Kembali</span>
                       </Button>
                     )}
 
@@ -1051,20 +1151,22 @@ export function TripEstimator() {
                       <Button
                         type="button"
                         intent="primary"
+                        size="lg"
                         className="flex-1"
                         onClick={handleNext}
                       >
-                        Lanjut
-                        <ChevronRight className="h-4 w-4" />
+                        <span>Lanjut</span>
+                        <ChevronRight className="h-5 w-5" />
                       </Button>
                     ) : (
                       <Button
                         type="submit"
                         intent="secondary"
-                        className="flex-1 shadow-lg shadow-secondary-500/25"
+                        size="lg"
+                        className="flex-1 shadow-lg shadow-secondary-500/25 font-bold"
                       >
-                        <MessageCircle className="h-4 w-4" />
-                        Dapatkan Penawaran via WA
+                        <MessageCircle className="h-5 w-5" />
+                        <span>Dapatkan Penawaran via WA</span>
                       </Button>
                     )}
                   </div>

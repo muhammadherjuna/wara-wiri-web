@@ -87,9 +87,10 @@ type MotionButtonProps = HTMLMotionProps<"button">;
 type NativeButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement>;
 
 export interface ButtonProps
-  extends Omit<NativeButtonProps, keyof MotionButtonProps>,
-    MotionButtonProps,
+  extends Omit<NativeButtonProps, keyof MotionButtonProps | "children">,
+    Omit<MotionButtonProps, "children">,
     VariantProps<typeof buttonVariants> {
+  children?: React.ReactNode;
   isLoading?: boolean;
   /** Accessible label shown to screen readers when loading */
   loadingText?: string;
@@ -154,10 +155,16 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         aria-label={isLoading ? loadingText : undefined}
         {...props}
       >
-        {isLoading && (
-          <Spinner className={spinnerSize[size ?? "md"]} aria-hidden />
+        {isLoading ? (
+          <span className="inline-flex items-center justify-center gap-2">
+            <Spinner className={spinnerSize[size ?? "md"]} aria-hidden />
+            <span className="opacity-70">{children}</span>
+          </span>
+        ) : (
+          <span className="inline-flex items-center justify-center gap-2 w-full">
+            {children}
+          </span>
         )}
-        <span className={cn(isLoading && "opacity-70")}>{children}</span>
       </motion.button>
     );
   }
