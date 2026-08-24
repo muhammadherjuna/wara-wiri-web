@@ -27,8 +27,6 @@ import {
   MessageCircle,
   CheckCircle2,
   AlertCircle,
-  Plus,
-  Minus,
   Info,
 } from "lucide-react";
 import { Section } from "@/components/ui/Section";
@@ -310,33 +308,23 @@ function TextInput({
   );
 }
 
-// ─── Number Stepper Input ─────────────────────────────────────────────────────
+// ─── Number Input ─────────────────────────────────────────────────────────────
 
-function NumberStepperInput({
+function NumberInput({
   value,
   onChange,
-  min = 1,
-  max = 500,
-  step = 1,
+  onBlur,
+  placeholder = "0",
   error,
   icon: Icon,
 }: {
   value: number;
   onChange: (v: number) => void;
-  min?: number;
-  max?: number;
-  step?: number;
+  onBlur?: () => void;
+  placeholder?: string;
   error?: string;
   icon?: React.ElementType;
 }) {
-  const handleDecrement = () => {
-    onChange(Math.max(min, (Number(value) || min) - step));
-  };
-
-  const handleIncrement = () => {
-    onChange(Math.min(max, (Number(value) || min) + step));
-  };
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/^0+(?=\d)/, "");
     if (raw === "") {
@@ -353,48 +341,23 @@ function NumberStepperInput({
     <div>
       <div
         className={cn(
-          "flex items-center rounded-xl border bg-white dark:bg-dark-700 shadow-sm transition-all duration-200 overflow-hidden",
+          "flex items-center gap-3 rounded-xl border px-4 py-3 bg-white dark:bg-dark-700 transition-all duration-200 shadow-sm",
           error
             ? "border-red-400 ring-2 ring-red-100 dark:ring-red-950/40"
             : "border-gray-200 dark:border-gray-700 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-100 dark:focus-within:ring-primary-900/30"
         )}
       >
         {Icon && (
-          <div className="pl-4 pr-1 text-gray-400 dark:text-gray-500">
-            <Icon className="h-5 w-5" />
-          </div>
+          <Icon className="h-5 w-5 text-gray-400 dark:text-gray-500 shrink-0" />
         )}
-
         <input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
+          type="number"
           value={value === 0 ? "" : value}
           onChange={handleInputChange}
-          placeholder="0"
-          className="flex-1 bg-transparent px-3 py-3 text-sm font-bold text-dark-800 dark:text-light-100 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          onBlur={onBlur}
+          placeholder={placeholder}
+          className="flex-1 bg-transparent text-sm font-semibold text-dark-800 dark:text-light-100 placeholder:text-gray-400 outline-none min-w-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
-
-        <div className="flex items-center pr-2 gap-1">
-          <button
-            type="button"
-            onClick={handleDecrement}
-            disabled={value <= min}
-            aria-label="Kurangi jumlah"
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-dark-600 text-dark-700 dark:text-light-200 hover:bg-gray-200 dark:hover:bg-dark-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <Minus className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={handleIncrement}
-            disabled={value >= max}
-            aria-label="Tambah jumlah"
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-dark-600 text-dark-700 dark:text-light-200 hover:bg-gray-200 dark:hover:bg-dark-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-        </div>
       </div>
       <FieldError message={error} />
     </div>
@@ -570,12 +533,11 @@ function Step2({
           name="studentCount"
           control={control}
           render={({ field }) => (
-            <NumberStepperInput
+            <NumberInput
               value={field.value ?? 0}
               onChange={field.onChange}
-              min={20}
-              max={500}
-              step={10}
+              onBlur={field.onBlur}
+              placeholder="Contoh: 40"
               error={errors.studentCount?.message}
               icon={Users}
             />
@@ -620,12 +582,11 @@ function Step2({
           name="teacherCount"
           control={control}
           render={({ field }) => (
-            <NumberStepperInput
+            <NumberInput
               value={field.value ?? 0}
               onChange={field.onChange}
-              min={1}
-              max={50}
-              step={1}
+              onBlur={field.onBlur}
+              placeholder="Contoh: 2"
               error={errors.teacherCount?.message}
               icon={User}
             />
@@ -1167,11 +1128,10 @@ export function TripEstimator() {
                       <Button
                         type="button"
                         intent="outline"
-                        size="lg"
-                        className="flex-1"
+                        className="flex-1 h-11 text-sm font-semibold gap-2"
                         onClick={handleBack}
                       >
-                        <ChevronLeft className="h-5 w-5" />
+                        <ChevronLeft className="h-4 w-4 shrink-0" />
                         <span>Kembali</span>
                       </Button>
                     )}
@@ -1180,22 +1140,20 @@ export function TripEstimator() {
                       <Button
                         type="button"
                         intent="primary"
-                        size="lg"
-                        className="flex-1"
+                        className="flex-1 h-11 text-sm font-semibold gap-2"
                         onClick={handleNext}
                       >
                         <span>Lanjut</span>
-                        <ChevronRight className="h-5 w-5" />
+                        <ChevronRight className="h-4 w-4 shrink-0" />
                       </Button>
                     ) : (
                       <Button
                         type="submit"
                         intent="secondary"
-                        size="lg"
-                        className="flex-1 shadow-lg shadow-secondary-500/25 font-bold"
+                        className="flex-1 h-11 text-xs sm:text-sm font-bold shadow-lg shadow-secondary-500/25 gap-2 px-2 sm:px-4"
                       >
-                        <MessageCircle className="h-5 w-5" />
-                        <span>Dapatkan Penawaran via WA</span>
+                        <MessageCircle className="h-4 w-4 shrink-0" />
+                        <span>Kirim Penawaran via WA</span>
                       </Button>
                     )}
                   </div>
