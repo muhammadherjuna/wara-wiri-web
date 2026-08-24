@@ -300,7 +300,7 @@ function TextInput({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
-          className="flex-1 border-0 bg-transparent text-sm font-medium text-dark-800 dark:text-light-100 placeholder:text-gray-400 outline-none min-w-0"
+          className="flex-1 appearance-none border-0 bg-transparent text-sm font-medium text-dark-800 dark:text-light-100 placeholder:text-gray-400 outline-none min-w-0"
         />
       </div>
       <FieldError message={error} />
@@ -356,7 +356,7 @@ function NumberInput({
           onChange={handleInputChange}
           onBlur={onBlur}
           placeholder={placeholder}
-          className="flex-1 border-0 bg-transparent text-sm font-semibold text-dark-800 dark:text-light-100 placeholder:text-gray-400 outline-none min-w-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          className="flex-1 appearance-none border-0 bg-transparent text-sm font-semibold text-dark-800 dark:text-light-100 placeholder:text-gray-400 outline-none min-w-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
       </div>
       <FieldError message={error} />
