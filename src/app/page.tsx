@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Hero } from "@/components/sections/Hero";
 import { PopularPackages } from "@/components/sections/PopularPackages";
 import { WhyUs } from "@/components/sections/WhyUs";
+import { TripEstimator } from "@/components/features/TripEstimator";
 
 export const metadata: Metadata = {
   title: "Wara Wiri — Trip Sekolah Nggak Pakai Ribet",
@@ -15,15 +16,7 @@ export default function HomePage() {
       <Hero />
       <PopularPackages />
       <WhyUs />
-
-      {/* ── Estimasi Harga placeholder (Task 7) ─────────────────────────── */}
-      <section id="estimator" className="py-24 bg-light-100 dark:bg-dark-900">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <p className="text-gray-400 text-sm font-mono">
-            [ Estimasi Harga — coming soon ]
-          </p>
-        </div>
-      </section>
+      <TripEstimator />
     </>
   );
 }
