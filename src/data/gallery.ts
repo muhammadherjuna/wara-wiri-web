@@ -35,7 +35,7 @@ export const GALLERY_ITEMS: GalleryItem[] = [
   },
   {
     id: "g5",
-    src: "https://images.unsplash.com/photo-1506744626753-1fa28f67c9bf?q=80&w=1000&auto=format&fit=crop",
+    src: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1000&auto=format&fit=crop",
     alt: "Pemandangan pantai",
     caption: "Bermain air dan pasir di Pantai Kuta",
     category: "alam",
@@ -59,7 +59,7 @@ export const GALLERY_ITEMS: GalleryItem[] = [
   },
   {
     id: "g8",
-    src: "https://images.unsplash.com/photo-1508247029562-b91129fec810?q=80&w=1000&auto=format&fit=crop",
+    src: "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?q=80&w=1000&auto=format&fit=crop",
     alt: "Interior bus nyaman",
     caption: "Interior armada yang bersih dan ber-AC dingin",
     category: "transportasi",
@@ -83,7 +83,7 @@ export const GALLERY_ITEMS: GalleryItem[] = [
   },
   {
     id: "g11",
-    src: "https://images.unsplash.com/photo-1523580494112-071d311fa80d?q=80&w=1000&auto=format&fit=crop",
+    src: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=1000&auto=format&fit=crop",
     alt: "Perpisahan sekolah",
     caption: "Perjalanan pulang dengan membawa memori manis",
     category: "sekolah",
@@ -91,7 +91,7 @@ export const GALLERY_ITEMS: GalleryItem[] = [
   },
   {
     id: "g12",
-    src: "https://images.unsplash.com/photo-1549487739-e93ffec59b5f?q=80&w=1000&auto=format&fit=crop",
+    src: "https://images.unsplash.com/photo-1518548419970-58e3b4079ab2?q=80&w=1000&auto=format&fit=crop",
     alt: "Tari Bali",
     caption: "Menyaksikan pesona kesenian Tari Barong di Bali",
     category: "budaya",
