@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
 import { motion, type HTMLMotionProps } from "framer-motion";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
@@ -92,6 +93,12 @@ export interface ButtonProps
   isLoading?: boolean;
   /** Accessible label shown to screen readers when loading */
   loadingText?: string;
+  /**
+   * When true, the Button renders its child element directly, merging
+   * className and event handlers (uses @radix-ui/react-slot).
+   * Use this to render a <Link> or <a> with button styles.
+   */
+  asChild?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -105,6 +112,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       isLoading = false,
       loadingText = "Loading…",
       disabled,
+      asChild = false,
       children,
       ...props
     },
@@ -119,12 +127,28 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       icon: "h-4 w-4",
     };
 
+    const resolvedClassName = cn(buttonVariants({ intent, size }), className);
+
+    // ── asChild mode: delegate to Slot (e.g., for Next.js <Link>) ──────────
+    if (asChild) {
+      return (
+        <Slot
+          ref={ref}
+          className={resolvedClassName}
+          {...(props as React.HTMLAttributes<HTMLElement>)}
+        >
+          {children}
+        </Slot>
+      );
+    }
+
+    // ── Normal mode: animated motion.button ────────────────────────────────
     return (
       <motion.button
         ref={ref}
         whileTap={isDisabled ? undefined : { scale: 0.95 }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
-        className={cn(buttonVariants({ intent, size }), className)}
+        className={resolvedClassName}
         disabled={isDisabled}
         aria-disabled={isDisabled}
         aria-label={isLoading ? loadingText : undefined}
