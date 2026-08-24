@@ -385,28 +385,29 @@ function Step2({ control, errors }: {
 
 // --- Step3 ---
 
-function Step3({ control, errors }: {
+function Step3({ control, errors, isSubmitted }: {
   control: ReturnType<typeof useForm<FormData>>["control"];
   errors: ReturnType<typeof useForm<FormData>>["formState"]["errors"];
+  isSubmitted: boolean;
 }) {
   return (
     <div className="space-y-6">
       <Controller name="schoolName" control={control} render={({ field }) => (
-        <FormField label="Nama Sekolah" icon={School} error={errors.schoolName?.message}>
+        <FormField label="Nama Sekolah" icon={School} error={isSubmitted ? errors.schoolName?.message : undefined}>
           <TextInput value={field.value} onChange={field.onChange} onBlur={field.onBlur}
-            placeholder="Contoh: SMA Negeri 1 Kebumen" error={!!errors.schoolName} />
+            placeholder="Contoh: SMA Negeri 1 Kebumen" error={!!(isSubmitted && errors.schoolName)} />
         </FormField>
       )} />
       <Controller name="contactName" control={control} render={({ field }) => (
-        <FormField label="Nama Perwakilan" icon={User} error={errors.contactName?.message}>
+        <FormField label="Nama Perwakilan" icon={User} error={isSubmitted ? errors.contactName?.message : undefined}>
           <TextInput value={field.value} onChange={field.onChange} onBlur={field.onBlur}
-            placeholder="Contoh: Budi (Ketua OSIS)" error={!!errors.contactName} />
+            placeholder="Contoh: Budi (Ketua OSIS)" error={!!(isSubmitted && errors.contactName)} />
         </FormField>
       )} />
       <Controller name="whatsapp" control={control} render={({ field }) => (
-        <FormField label="Nomor WhatsApp" icon={Phone} error={errors.whatsapp?.message}>
+        <FormField label="Nomor WhatsApp" icon={Phone} error={isSubmitted ? errors.whatsapp?.message : undefined}>
           <TextInput value={field.value} onChange={field.onChange} onBlur={field.onBlur}
-            placeholder="Contoh: 081234567890" type="tel" error={!!errors.whatsapp} />
+            placeholder="Contoh: 081234567890" type="tel" error={!!(isSubmitted && errors.whatsapp)} />
         </FormField>
       )} />
       <div className="flex gap-3 rounded-xl border border-blue-100 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/10 p-4">
@@ -511,7 +512,7 @@ export function TripEstimator() {
     handleSubmit,
     trigger,
     watch,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isSubmitted },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -616,7 +617,7 @@ export function TripEstimator() {
               >
                 {step === 0 && <Step1 control={control} errors={errors} />}
                 {step === 1 && <Step2 control={control} errors={errors} />}
-                {step === 2 && <Step3 control={control} errors={errors} />}
+                {step === 2 && <Step3 control={control} errors={errors} isSubmitted={isSubmitted} />}
               </motion.div>
             </AnimatePresence>
 
