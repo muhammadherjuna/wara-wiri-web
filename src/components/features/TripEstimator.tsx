@@ -285,10 +285,10 @@ function TextInput({
     <div>
       <div
         className={cn(
-          "flex items-center gap-3 rounded-xl border px-4 py-3 bg-white dark:bg-dark-700 transition-all duration-200 shadow-sm",
+          "flex items-center gap-3 rounded-xl border px-4 py-3 bg-white dark:bg-dark-700 transition-colors duration-200 shadow-sm",
           error
-            ? "border-red-400 ring-2 ring-red-100 dark:ring-red-950/40"
-            : "border-gray-200 dark:border-gray-700 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-100 dark:focus-within:ring-primary-900/30"
+            ? "border-red-400"
+            : "border-gray-200 dark:border-gray-700 focus-within:border-primary-500"
         )}
       >
         {Icon && (
@@ -341,10 +341,10 @@ function NumberInput({
     <div>
       <div
         className={cn(
-          "flex items-center gap-3 rounded-xl border px-4 py-3 bg-white dark:bg-dark-700 transition-all duration-200 shadow-sm",
+          "flex items-center gap-3 rounded-xl border px-4 py-3 bg-white dark:bg-dark-700 transition-colors duration-200 shadow-sm",
           error
-            ? "border-red-400 ring-2 ring-red-100 dark:ring-red-950/40"
-            : "border-gray-200 dark:border-gray-700 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-100 dark:focus-within:ring-primary-900/30"
+            ? "border-red-400"
+            : "border-gray-200 dark:border-gray-700 focus-within:border-primary-500"
         )}
       >
         {Icon && (
