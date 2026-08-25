@@ -20,6 +20,8 @@ import {
 import { Badge } from "@/components/ui/Badge";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
+import { Skeleton } from "@/components/ui/Skeleton";
+
 
 export const metadata: Metadata = {
   title: "UI Component Preview | wara-wiri",
@@ -164,6 +166,29 @@ export default function UIPreviewPage() {
           <Badge variant="success">Shipped</Badge>
           <Badge variant="warning">Beta</Badge>
           <Badge variant="danger">Deprecated</Badge>
+        </div>
+      </Section>
+
+      {/* ── Skeleton ──────────────────────────────────────────────────────── */}
+      <Section
+        heading="Skeleton Loading"
+        description="Placeholders for loading states using animate-pulse."
+        className="bg-gray-50"
+      >
+        <div className="flex flex-col gap-6 max-w-md mx-auto p-6 bg-white rounded-2xl shadow-sm border border-gray-100">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-12 w-12 rounded-full" />
+            <div className="space-y-2 flex-1">
+              <Skeleton className="h-4 w-[200px]" />
+              <Skeleton className="h-3 w-[150px]" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-[90%]" />
+            <Skeleton className="h-4 w-[80%]" />
+            <Skeleton className="h-4 w-[95%]" />
+          </div>
         </div>
       </Section>
 

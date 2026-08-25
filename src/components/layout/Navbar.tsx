@@ -77,19 +77,11 @@ function NavLink({
         "text-dark-600 dark:text-light-300",
         "hover:text-primary-600 dark:hover:text-primary-400",
         "transition-colors duration-200",
-        "py-1"
+        "py-1",
+        "link-underline"
       )}
     >
       {label}
-      {/* Animated underline */}
-      <span
-        className={cn(
-          "absolute -bottom-0.5 left-0 h-0.5 w-0 rounded-full",
-          "bg-primary-500",
-          "transition-all duration-300 ease-out",
-          "group-hover:w-full"
-        )}
-      />
     </Link>
   );
 }

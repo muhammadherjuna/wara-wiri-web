@@ -30,3 +30,7 @@ export type { SectionProps } from "./Section";
 
 export { Modal } from "./Modal";
 export type { ModalProps } from "./Modal";
+
+export { Skeleton } from "./Skeleton";
+export type { SkeletonProps } from "./Skeleton";
+
