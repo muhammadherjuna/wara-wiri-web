@@ -5,6 +5,9 @@ import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { FloatingActions } from "@/components/layout/FloatingActions";
+import { siteConfig } from "@/lib/site";
+import Script from "next/script";
+
 
 // ─── Font ─────────────────────────────────────────────────────────────────────
 
@@ -19,25 +22,41 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 // ─── Metadata ─────────────────────────────────────────────────────────────────
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteConfig.url),
   title: {
-    default: "Wara Wiri — Trip Sekolah Nggak Pakai Ribet",
-    template: "%s | Wara Wiri",
+    default: `${siteConfig.name} — ${siteConfig.tagline}`,
+    template: `%s | ${siteConfig.name}`,
   },
-  description:
-    "Wara Wiri menghadirkan pengalaman wisata edukatif yang berkesan dan terpercaya untuk pelajar Indonesia. Pesan paket trip sekolah dengan mudah.",
-  keywords: ["trip sekolah", "wisata edukatif", "study tour", "wara wiri", "paket wisata pelajar"],
-  authors: [{ name: "Wara Wiri" }],
-  creator: "Wara Wiri",
-  metadataBase: new URL("https://warawiri.id"),
+  description: siteConfig.description,
+  keywords: siteConfig.keywords,
+  authors: [{ name: siteConfig.author }],
+  creator: siteConfig.name,
+  robots: "index, follow",
   openGraph: {
     type: "website",
     locale: "id_ID",
-    url: "https://warawiri.id",
-    siteName: "Wara Wiri",
-    title: "Wara Wiri — Trip Sekolah Nggak Pakai Ribet",
-    description:
-      "Wara Wiri menghadirkan pengalaman wisata edukatif yang berkesan dan terpercaya untuk pelajar Indonesia.",
+    url: siteConfig.url,
+    siteName: siteConfig.name,
+    title: `${siteConfig.name} — ${siteConfig.tagline}`,
+    description: siteConfig.description,
   },
+  twitter: {
+    card: "summary_large_image",
+    title: `${siteConfig.name} — ${siteConfig.tagline}`,
+    description: siteConfig.description,
+  },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "TravelAgency",
+  name: siteConfig.name,
+  description: siteConfig.description,
+  url: siteConfig.url,
+  areaServed: "Kebumen, Jawa Tengah",
+  telephone: `+${siteConfig.whatsappNumber}`,
+  priceRange: "Rp",
+  sameAs: [siteConfig.socials.instagram, siteConfig.socials.facebook],
 };
 
 // ─── Root Layout ──────────────────────────────────────────────────────────────
@@ -69,11 +88,19 @@ export default function RootLayout({
           }}
         />
         <ThemeProvider>
+          <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-white focus:text-primary-600 focus:font-bold focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+            Lewati ke konten utama
+          </a>
           <Navbar />
-          <main className="flex-grow">{children}</main>
+          <main id="main-content" className="flex-grow">{children}</main>
           <Footer />
           <FloatingActions />
         </ThemeProvider>
+        <Script
+          id="structured-data"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
       </body>
     </html>
   );
